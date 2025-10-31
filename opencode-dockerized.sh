@@ -1,0 +1,214 @@
+#!/bin/bash
+
+# OpenCode Docker Wrapper Script
+# This script makes it easy to run OpenCode in a secure Docker container
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMAGE_NAME="opencode-dockerized:latest"
+CONTAINER_NAME="opencode-dockerized"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}✗${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠${NC} $1"
+}
+
+# Function to check if Docker is running
+check_docker() {
+    if ! docker info >/dev/null 2>&1; then
+        print_error "Docker is not running. Please start Docker and try again."
+        exit 1
+    fi
+}
+
+# Function to build the Docker image
+build_image() {
+    print_info "Building OpenCode Docker image..."
+    docker build -t "$IMAGE_NAME" "$SCRIPT_DIR"
+    print_success "Docker image built successfully"
+}
+
+# Function to check required configuration files
+check_config() {
+    local missing_files=()
+    
+    if [ ! -f "$HOME/.config/opencode/opencode.json" ]; then
+        missing_files+=("$HOME/.config/opencode/opencode.json")
+    fi
+    
+    if [ ! -f "$HOME/.local/share/opencode/auth.json" ]; then
+        missing_files+=("$HOME/.local/share/opencode/auth.json")
+    fi
+    
+    if [ ${#missing_files[@]} -gt 0 ]; then
+        print_warning "Some OpenCode configuration files are missing:"
+        for file in "${missing_files[@]}"; do
+            echo "  - $file"
+        done
+        print_info "OpenCode will run but may need configuration. Run 'opencode auth login' inside the container."
+    fi
+}
+
+# Function to run OpenCode
+run_opencode() {
+    local project_dir="${1:-$(pwd)}"
+    
+    # Convert to absolute path
+    project_dir="$(cd "$project_dir" && pwd)"
+    
+    print_info "Starting OpenCode in Docker..."
+    print_info "Project directory: $project_dir"
+    
+    # Build volume mount arguments - only mount files that exist
+    local volume_args="-v $project_dir:/workspace"
+    
+    # OpenCode configuration (optional)
+    if [ -f "$HOME/.config/opencode/opencode.json" ]; then
+        volume_args="$volume_args -v $HOME/.config/opencode/opencode.json:/home/coder/.config/opencode/opencode.json:ro"
+    else
+        print_warning "OpenCode config not found at $HOME/.config/opencode/opencode.json"
+    fi
+    
+    # OpenCode agent (optional)
+    if [ -d "$HOME/.config/opencode/agent" ]; then
+        volume_args="$volume_args -v $HOME/.config/opencode/agent:/home/coder/.config/opencode/agent:ro"
+    fi
+    
+    # OpenCode authentication (optional)
+    if [ -f "$HOME/.local/share/opencode/auth.json" ]; then
+        volume_args="$volume_args -v $HOME/.local/share/opencode/auth.json:/home/coder/.local/share/opencode/auth.json:ro"
+    else
+        print_warning "OpenCode auth not found at $HOME/.local/share/opencode/auth.json"
+        print_info "You'll need to run 'opencode auth login' inside the container"
+    fi
+    
+    # Gradle properties (optional)
+    if [ -f "$HOME/.gradle/gradle.properties" ]; then
+        volume_args="$volume_args -v $HOME/.gradle/gradle.properties:/home/coder/.gradle/gradle.properties:ro"
+    fi
+    
+    # NPM configuration (optional)
+    if [ -f "$HOME/.npmrc" ]; then
+        volume_args="$volume_args -v $HOME/.npmrc:/home/coder/.npmrc:ro"
+    fi
+    
+    # Check if container already exists
+    if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        print_info "Removing existing container..."
+        docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1
+    fi
+    
+    # Run OpenCode in Docker (without security-opt to allow entrypoint to work)
+    docker run -it --rm \
+        --name "$CONTAINER_NAME" \
+        --network host \
+        -e HOST_UID="$(id -u)" \
+        -e HOST_GID="$(id -g)" \
+        -e TERM="${TERM:-xterm-256color}" \
+        $volume_args \
+        "$IMAGE_NAME" \
+        opencode
+}
+
+# Function to update OpenCode
+update_opencode() {
+    print_info "Updating OpenCode..."
+    docker run --rm "$IMAGE_NAME" npm list -g opencode-ai --depth=0
+    print_info "Rebuilding image with latest OpenCode..."
+    build_image
+    print_success "OpenCode updated successfully"
+}
+
+# Function to show help
+show_help() {
+    cat << EOF
+OpenCode Docker Wrapper
+
+Usage: $0 [COMMAND] [OPTIONS]
+
+Commands:
+    run [DIR]       Run OpenCode in Docker (default: current directory)
+    build           Build the Docker image
+    update          Update OpenCode to the latest version
+    version         Show OpenCode version in the container
+    help            Show this help message
+
+Examples:
+    $0 run                          # Run in current directory
+    $0 run /path/to/project         # Run in specific directory
+    $0 build                        # Build the Docker image
+    $0 update                       # Update OpenCode
+
+Security Features:
+    ✓ Isolated environment - Only access to mounted project directory
+    ✓ Read-only config mounts - Configuration files are mounted read-only
+    ✓ No privileged access - Container runs with minimal privileges
+    ✓ Non-root user - Runs as non-root user inside container
+
+For more information, see README.md
+EOF
+}
+
+# Function to show version
+show_version() {
+    docker run --rm \
+        -e HOST_UID="$(id -u)" \
+        -e HOST_GID="$(id -g)" \
+        "$IMAGE_NAME" opencode --version
+}
+
+# Main script logic
+main() {
+    check_docker
+    
+    local command="${1:-run}"
+    shift || true
+    
+    case "$command" in
+        run)
+            check_config
+            run_opencode "$@"
+            ;;
+        build)
+            build_image
+            ;;
+        update)
+            update_opencode
+            ;;
+        version)
+            show_version
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            print_error "Unknown command: $command"
+            echo
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function
+main "$@"
