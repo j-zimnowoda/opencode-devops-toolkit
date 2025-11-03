@@ -131,9 +131,11 @@ run_opencode() {
     fi
     
     # Run OpenCode in Docker (without security-opt to allow entrypoint to work)
+    # Mount Docker socket to allow Docker-in-Docker operations
     docker run -it --rm \
         --name "$CONTAINER_NAME" \
         --network host \
+        -v /var/run/docker.sock:/var/run/docker.sock \
         -e HOST_UID="$(id -u)" \
         -e HOST_GID="$(id -g)" \
         -e TERM="${TERM:-xterm-256color}" \

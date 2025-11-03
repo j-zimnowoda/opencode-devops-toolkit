@@ -1,31 +1,64 @@
-# Use Node.js 20 LTS as base image for OpenCode
-FROM node:20-slim
+# Use Debian slim as lightweight Linux base
+# Note: For full Docker-in-Docker, this image needs --privileged flag
+FROM debian:bookworm-slim
 
-# Install required dependencies
+# Install base dependencies
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     bash \
     ca-certificates \
     sudo \
+    zip \
+    unzip \
+    wget \
+    gnupg \
+    lsb-release \
+    apt-transport-https \
+    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
-# Install OpenCode globally
-RUN npm install -g opencode-ai
+# Install Docker (Docker-in-Docker)
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
+    chmod a+r /etc/apt/keyrings/docker.asc && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && \
+    rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user that will match the host user
-# The node image already has a user with UID 1000, so we need to handle this
-RUN if id -u 1000 >/dev/null 2>&1; then \
-        # If UID 1000 exists (node user), rename it to coder \
-        existing_user=$(id -un 1000) && \
-        usermod -l coder $existing_user && \
-        groupmod -n coder $(id -gn 1000) && \
-        usermod -d /home/coder -m coder; \
-    else \
-        # If UID 1000 doesn't exist, create the user \
-        useradd -m -s /bin/bash -u 1000 coder; \
-    fi && \
-    echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+# Create a non-root user
+RUN useradd -m -s /bin/bash -u 1000 coder && \
+    echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    usermod -aG docker coder
+
+# Install SDKMAN as coder user
+USER coder
+WORKDIR /home/coder
+RUN curl -s "https://get.sdkman.io" | bash && \
+    bash -c "source /home/coder/.sdkman/bin/sdkman-init.sh && \
+    sdk install java 21.0.5-tem && \
+    sdk default java 21.0.5-tem"
+
+# Install NVM and Node.js 24.11.0 LTS as coder user
+ENV NVM_DIR="/home/coder/.nvm"
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && \
+    bash -c "source $NVM_DIR/nvm.sh && \
+    nvm install 24.11.0 && \
+    nvm alias default 24.11.0 && \
+    nvm use default"
+
+# Add nvm, node, and sdkman to PATH
+ENV PATH="$NVM_DIR/versions/node/v22.11.0/bin:/home/coder/.sdkman/candidates/java/current/bin:$PATH"
+ENV JAVA_HOME="/home/coder/.sdkman/candidates/java/current"
+
+# Install OpenCode globally
+RUN bash -c "source $NVM_DIR/nvm.sh && npm install -g opencode-ai"
+
+# Switch back to root for entrypoint setup
+USER root
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /home/coder/.config/opencode && \
@@ -33,6 +66,7 @@ RUN mkdir -p /home/coder/.config/opencode && \
     mkdir -p /home/coder/.cache/opencode && \
     mkdir -p /home/coder/.gradle && \
     mkdir -p /home/coder/.npm && \
+    mkdir -p /home/coder/.m2 && \
     chown -R coder:coder /home/coder
 
 # Set working directory
