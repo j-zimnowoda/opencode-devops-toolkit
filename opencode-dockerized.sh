@@ -43,7 +43,8 @@ check_docker() {
 # Function to build the Docker image
 build_image() {
     print_info "Building OpenCode Docker image..."
-    docker build -t "$IMAGE_NAME" "$SCRIPT_DIR"
+    # Pass build-time timestamp to invalidate cache and force fresh npm install
+    docker build --build-arg "OPENCODE_BUILD_TIME=$(date +%s)" -t "$IMAGE_NAME" "$SCRIPT_DIR"
     print_success "Docker image built successfully"
 }
 

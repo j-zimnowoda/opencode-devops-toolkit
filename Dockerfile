@@ -55,7 +55,9 @@ ENV PATH="$NVM_DIR/versions/node/v22.11.0/bin:/home/coder/.sdkman/candidates/jav
 ENV JAVA_HOME="/home/coder/.sdkman/candidates/java/current"
 
 # Install OpenCode globally
-RUN bash -c "source $NVM_DIR/nvm.sh && npm install -g opencode-ai"
+# Use ARG to force cache invalidation on each build
+ARG OPENCODE_BUILD_TIME
+RUN bash -c "source $NVM_DIR/nvm.sh && npm install -g opencode-ai@latest"
 
 # Switch back to root for entrypoint setup
 USER root
