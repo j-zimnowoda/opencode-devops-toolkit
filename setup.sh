@@ -41,7 +41,10 @@ echo ""
 # Check/create OpenCode directories
 ensure_dir "$HOME/.config/opencode"
 ensure_dir "$HOME/.config/opencode/agent"
+ensure_dir "$HOME/.config/opencode/plugin"
+ensure_dir "$HOME/.config/opencode/command"
 ensure_dir "$HOME/.local/share/opencode"
+ensure_dir "$HOME/.cache/opencode"
 ensure_dir "$HOME/.mcp-auth"
 
 # Check/create OpenCode config files

@@ -44,16 +44,17 @@ RUN curl -s "https://get.sdkman.io" | bash && \
     sdk install java 21.0.5-tem && \
     sdk default java 21.0.5-tem"
 
-# Install NVM and Node.js 24.11.0 LTS as coder user
+# Install NVM and Node.js LTS as coder user
 ENV NVM_DIR="/home/coder/.nvm"
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && \
     bash -c "source $NVM_DIR/nvm.sh && \
-    nvm install 24.11.0 && \
-    nvm alias default 24.11.0 && \
+    nvm install --lts && \
+    nvm alias default node && \
     nvm use default"
 
 # Add nvm, node, and sdkman to PATH
-ENV PATH="$NVM_DIR/versions/node/v22.11.0/bin:/home/coder/.sdkman/candidates/java/current/bin:$PATH"
+# Note: Node version path will be determined at runtime by nvm
+ENV PATH="$NVM_DIR/versions/node/default/bin:/home/coder/.sdkman/candidates/java/current/bin:$PATH"
 ENV JAVA_HOME="/home/coder/.sdkman/candidates/java/current"
 
 # Install OpenCode globally

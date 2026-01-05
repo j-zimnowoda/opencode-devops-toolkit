@@ -21,21 +21,24 @@ fi
 # Build volume mount arguments - only mount files that exist
 VOLUME_ARGS="-v $PROJECT_DIR:/workspace"
 
-# OpenCode configuration (optional)
-[ -f "$HOME/.config/opencode/opencode.json" ] && \
-    VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.config/opencode/opencode.json:/home/coder/.config/opencode/opencode.json:ro"
-
-# OpenCode agent (optional)
-[ -d "$HOME/.config/opencode/agent" ] && \
-    VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.config/opencode/agent:/home/coder/.config/opencode/agent:ro"
+# OpenCode configuration directory (read-only)
+# Includes: opencode.json, AGENTS.md, .env, agent/, command/, plugin/, node_modules/, etc.
+[ -d "$HOME/.config/opencode" ] && \
+    VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.config/opencode:/home/coder/.config/opencode:ro"
 
 # OpenCode data directory (read-write for auth, logs, sessions, storage)
+# Mount entire .local/share/opencode directory
 [ -d "$HOME/.local/share/opencode" ] && \
     VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.local/share/opencode:/home/coder/.local/share/opencode"
 
-# OpenCode provider package cache (optional)
+# OpenCode provider package cache (improves startup time and prevents API errors)
+# See: https://opencode.ai/docs/troubleshooting/#ai_apicallerror-and-provider-package-issues
 [ -d "$HOME/.cache/opencode" ] && \
     VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.cache/opencode:/home/coder/.cache/opencode"
+
+# MCP authentication directory (optional)
+[ -d "$HOME/.mcp-auth" ] && \
+    VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.mcp-auth:/home/coder/.mcp-auth:ro"
 
 # Gradle properties (optional)
 [ -f "$HOME/.gradle/gradle.properties" ] && \

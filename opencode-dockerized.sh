@@ -129,23 +129,14 @@ run_opencode() {
     # Build volume mount arguments - only mount files that exist
     local volume_args="-v $project_dir:/workspace"
     
-    # OpenCode configuration (optional)
-    if [ -f "$HOME/.config/opencode/opencode.json" ]; then
-        volume_args="$volume_args -v $HOME/.config/opencode/opencode.json:/home/coder/.config/opencode/opencode.json:ro"
+    # OpenCode configuration directory (read-only)
+    # Includes: opencode.json, AGENTS.md, .env, agent/, command/, plugin/, node_modules/, etc.
+    if [ -d "$HOME/.config/opencode" ]; then
+        volume_args="$volume_args -v $HOME/.config/opencode:/home/coder/.config/opencode:ro"
     else
-        print_warning "OpenCode config not found at $HOME/.config/opencode/opencode.json"
+        print_warning "OpenCode config directory not found at $HOME/.config/opencode"
     fi
-    
-    # OpenCode agent (optional)
-    if [ -d "$HOME/.config/opencode/agent" ]; then
-        volume_args="$volume_args -v $HOME/.config/opencode/agent:/home/coder/.config/opencode/agent:ro"
-    fi
-    
-    # OpenCode AGENTS.md (optional)
-    if [ -f "$HOME/.config/opencode/AGENTS.md" ]; then
-        volume_args="$volume_args -v $HOME/.config/opencode/AGENTS.md:/home/coder/.config/opencode/AGENTS.md:ro"
-    fi
-    
+
     # OpenCode data directory (read-write for auth, logs, sessions, storage)
     # Mount entire .local/share/opencode directory
     if [ -d "$HOME/.local/share/opencode" ]; then
