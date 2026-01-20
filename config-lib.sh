@@ -482,3 +482,44 @@ print_config() {
     fi
     echo ""
 }
+
+# ============================================
+# SETUP ORCHESTRATION (used by setup.sh)
+# ============================================
+
+# Main entry point for interactive configuration setup
+# Handles: mode selection, prompts, config persistence
+interactive_config_setup() {
+    prompt_config_mode
+    
+    case "$CONFIG_MODE" in
+        skip)
+            echo ""
+            echo "Skipping custom configuration setup."
+            echo "You can run setup.sh again later to configure custom mounts and environment variables."
+            ;;
+        append|overwrite)
+            [ "$CONFIG_MODE" = "append" ] && load_config
+            prompt_custom_mounts
+            prompt_env_vars
+            save_config
+            print_config
+            ;;
+        new)
+            read -p "Would you like to configure custom mounts and environment variables now? (y/N): " -r setup_custom
+            if [[ "$setup_custom" =~ ^[Yy]$ ]]; then
+                prompt_custom_mounts
+                prompt_env_vars
+                if [ ${#CUSTOM_MOUNTS[@]} -gt 0 ] || [ ${#CUSTOM_ENV_VARS[@]} -gt 0 ]; then
+                    save_config
+                    print_config
+                else
+                    config_info "No custom configuration added."
+                fi
+            else
+                init_config_file
+                config_info "You can run setup.sh again later to configure custom mounts and environment variables."
+            fi
+            ;;
+    esac
+}
