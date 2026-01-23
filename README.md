@@ -278,6 +278,28 @@ Update scripts to use `yourusername/opencode-dockerized:latest`
 
 ## 🔍 Advanced Usage
 
+### Python Development with uv
+
+The container includes [uv](https://docs.astral.sh/uv/), a fast Python package manager and project manager. Use it for:
+
+```bash
+# Inside the container or via OpenCode commands
+uv init my-project              # Create a new Python project
+uv add requests                 # Add dependencies
+uv run python script.py         # Run scripts in isolated environment
+uv pip install package          # Install packages (pip-compatible)
+uv venv                         # Create virtual environments
+uv python install 3.12          # Install specific Python versions
+```
+
+**Benefits:**
+- ✅ 10-100x faster than pip
+- ✅ Deterministic dependency resolution
+- ✅ Built-in virtual environment management
+- ✅ Works seamlessly with existing pip workflows
+
+For more information, see the [uv documentation](https://docs.astral.sh/uv/).
+
 ### Adding Additional Tools
 
 Edit `Dockerfile`:
@@ -388,7 +410,7 @@ docker build --no-cache -t opencode-dockerized:latest .
 
 1. **Base Image**: Uses Debian Bookworm slim for minimal footprint
 2. **Docker CLI Only**: Installs only Docker CLI (uses host's Docker daemon via socket)
-3. **Development Tools**: Includes Node.js (via NVM), Java (via SDKMAN), Git, and essential tools
+3. **Development Tools**: Includes Node.js (via NVM), Java (via SDKMAN), Python tooling (via uv), Git, and essential tools
 4. **OpenCode Installation**: Installs latest OpenCode via npm
 5. **User Management**: Creates non-root `coder` user with UID/GID matching
 6. **Entrypoint**: Adjusts permissions and switches to non-root user

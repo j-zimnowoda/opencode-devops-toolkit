@@ -52,9 +52,13 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | b
     nvm alias default node && \
     nvm use default"
 
-# Add nvm, node, and sdkman to PATH
+# Install uv (Python package manager) as coder user
+# See: https://docs.astral.sh/uv/getting-started/installation/
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add nvm, node, sdkman, and uv to PATH
 # Note: Node version path will be determined at runtime by nvm
-ENV PATH="$NVM_DIR/versions/node/default/bin:/home/coder/.sdkman/candidates/java/current/bin:$PATH"
+ENV PATH="$NVM_DIR/versions/node/default/bin:/home/coder/.local/bin:/home/coder/.sdkman/candidates/java/current/bin:$PATH"
 ENV JAVA_HOME="/home/coder/.sdkman/candidates/java/current"
 
 # Install OpenCode globally
