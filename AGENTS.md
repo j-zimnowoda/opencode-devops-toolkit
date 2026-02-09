@@ -5,25 +5,31 @@
 Shell script-based Docker wrapper for running [OpenCode](https://opencode.ai) in secure, isolated containers. Sandboxes OpenCode so its blast radius is limited to the mounted project directory. Supports [Oh My OpenCode](https://github.com/code-yeongyu/oh-my-opencode) plugin. All source is Bash shell scripts and a Dockerfile — no compiled code, no JS/Python source, no package manager files.
 
 **Key files:**
-- `opencode-dockerized.sh` — Main wrapper (build, run, auth, update commands)
-- `config-lib.sh` — Shared module sourced by other scripts (config parsing, mount/env arg building)
+- `opencode-dockerized.sh` — Main wrapper (build, run, auth, update, config, clean commands)
+- `config-lib.sh` — Shared library sourced by other scripts (config parsing, mount/env arg building, shared volume logic, interactive prompts). **Not executable directly.**
 - `Dockerfile` — Container image (Debian bookworm-slim + Node.js/NVM + Java 21/SDKMAN + Bun + OpenCode)
 - `entrypoint.sh` — Container entrypoint (UID/GID mapping, Docker socket permissions)
 - `setup.sh` — First-time config directory initialization
-- `run-simple.sh` — Simplified alternative runner
-- `config.example` — Example user config (INI-style)
-- Completion scripts: `opencode-dockerized-completion.{bash,zsh}`
+- `run-simple.sh` — Simplified alternative runner (uses shared logic from config-lib.sh)
+- `config.example` — Example user config (INI-style), in `examples/`
+- `.dockerignore` — Excludes non-essential files from Docker build context
+- Completion scripts: `completions/{bash,zsh}.sh`
 
 ## Build / Test / Lint Commands
 
 ```bash
 # Core operations
-./opencode-dockerized.sh build          # Build Docker image
+./opencode-dockerized.sh build          # Build Docker image (uses layer cache)
 ./opencode-dockerized.sh run [DIR]      # Run OpenCode (default: current dir)
 ./opencode-dockerized.sh auth           # Authenticate OpenCode
-./opencode-dockerized.sh update         # Update OpenCode inside container
+./opencode-dockerized.sh update         # Update OpenCode (cache-busting rebuild)
 ./opencode-dockerized.sh version        # Show OpenCode version
+./opencode-dockerized.sh config show    # Show parsed configuration
+./opencode-dockerized.sh config edit    # Edit config in $EDITOR
+./opencode-dockerized.sh config path    # Print config file path
+./opencode-dockerized.sh clean          # Remove Docker image
 ./opencode-dockerized.sh help           # Show help
+DRY_RUN=true ./opencode-dockerized.sh run  # Print docker command without running
 
 # Validation (no test framework exists — these are the only checks)
 bash -n script.sh                       # Syntax-check one script
@@ -43,11 +49,13 @@ There are **no automated tests** — validate changes with `bash -n` and `shellc
 
 ### File Header
 
-Every shell script starts with:
+Every executable shell script starts with:
 ```bash
 #!/bin/bash
 set -e  # Exit on first error
 ```
+
+**Exception:** `config-lib.sh` is a library file sourced by callers — it must **not** use `set -e` to avoid affecting callers' error handling.
 
 ### Script Initialization
 
@@ -64,7 +72,7 @@ source "$SCRIPT_DIR/config-lib.sh"
 | Shell scripts     | kebab-case.sh      | `opencode-dockerized.sh`, `run-simple.sh`     |
 | Functions         | snake_case         | `check_docker()`, `build_image()`             |
 | Constants         | UPPER_SNAKE        | `IMAGE_NAME`, `SCRIPT_DIR`, `CONFIG_DIR`      |
-| Local variables   | lower_snake        | `project_dir`, `volume_args`, `random_suffix` |
+| Local variables   | lower_snake        | `project_dir`, `container_name`               |
 | Global arrays     | UPPER_SNAKE        | `CUSTOM_MOUNTS=()`, `DOCKER_MOUNT_ARGS=()`   |
 | Booleans          | UPPER_SNAKE=false  | `SSH_AGENT_SUPPORT=false`                     |
 | Docker images     | kebab-case:tag     | `opencode-dockerized:latest`                  |
@@ -74,9 +82,11 @@ source "$SCRIPT_DIR/config-lib.sh"
 
 - **Always quote variables:** `"$variable"` not `$variable`
 - **Command substitution:** `$()` not backticks
+- **Declare and assign separately:** `local dir_name; dir_name=$(...)` (SC2155)
 - **Absolute paths:** `SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"`
 - **Defaults with `:=`:** `CONFIG_DIR="${CONFIG_DIR:-$HOME/.config/opencode-dockerized}"`
 - **Color defaults in modules:** `: "${RED:='\033[0;31m'}"` (avoid overwriting caller-defined values)
+- **Use arrays for Docker args:** Never build docker args as strings — use arrays and `"${array[@]}"`
 
 ### Color Output / Logging
 
@@ -98,24 +108,24 @@ config_info() {
 
 ### Error Handling
 
-- Check prerequisites before operations (e.g., `check_docker` before any Docker command)
+- Check prerequisites before operations (e.g., `check_docker`, `check_image` before Docker commands)
+- Validate project directory exists before `cd`: `if [ ! -d "$dir" ]; then print_error ...; exit 1; fi`
 - Print explicit error with `print_error()` then `exit 1`
 - Suppress expected failures: `2>/dev/null || true`
 - Graceful fallback in parsers: `load_config || return 0`
+- Wrap `docker run` in error-handling: `if ! docker run ...; then print_error ...; exit 1; fi`
+- Always use `read -r` to prevent backslash interpretation (SC2162)
+- Validate env var names from config: `[[ "$var_name" =~ ^[A-Z_][A-Z0-9_]*$ ]]`
 
-### Conditionals and Volume Mounts
+### Shared Logic (config-lib.sh)
 
-```bash
-# Short-circuit for optional mounts
-[ -f "$file" ] && volume_args="$volume_args -v $file:/path:ro"
-[ -d "$dir" ]  && volume_args="$volume_args -v $dir:/path"
-
-# If-block with user feedback
-if ! docker info >/dev/null 2>&1; then
-    print_error "Docker is not running"
-    exit 1
-fi
-```
+All volume mount logic lives in `config-lib.sh` to eliminate duplication:
+- `build_standard_volume_args "$project_dir" [include_docker_socket]` — populates `VOLUME_ARGS` array
+- `build_common_docker_args` — populates `DOCKER_COMMON_ARGS` array (--rm, --network host, UID/GID, TERM)
+- `ensure_opencode_dirs` — creates required host directories
+- `check_image "$IMAGE_NAME"` — validates Docker image exists
+- `sanitize_container_name "$name"` — strips invalid Docker container name characters
+- `generate_random_suffix` — produces random hex for unique container names
 
 ### Main Entry Point Pattern
 
@@ -127,6 +137,8 @@ main() {
     case "$command" in
         run)    check_config; run_opencode "$@" ;;
         build)  build_image ;;
+        config) show_config "$@" ;;
+        clean)  clean_image ;;
         help|--help|-h) show_help ;;
         *)      print_error "Unknown command: $command"; show_help; exit 1 ;;
     esac
@@ -146,10 +158,13 @@ env.aws_bedrock=AWS_BEARER_TOKEN_BEDROCK
 ### Dockerfile Conventions
 
 - Base image: `debian:bookworm-slim` (pinned, not `latest`)
+- Parameterize tool versions via `ARG`: `ARG NVM_VERSION=v0.40.1`, `ARG JAVA_VERSION=21.0.5-tem`
 - Clean apt cache in same RUN layer: `&& rm -rf /var/lib/apt/lists/*`
 - Install Docker CLI only (`docker-ce-cli`), never the daemon
 - System packages as root; dev tools (NVM, SDKMAN, uv, Bun) as non-root `coder` user
 - Non-root user: `useradd -m -s /bin/bash -u 1000 coder`
+- Create NVM default symlink for PATH: `ln -sf $(dirname $(which node)) $NVM_DIR/default`
+- Cache-busting `ARG OPENCODE_BUILD_TIME` only used by `update`, not regular `build`
 - Use official installers from trusted sources
 
 ### Security Rules
@@ -161,6 +176,7 @@ env.aws_bedrock=AWS_BEARER_TOKEN_BEDROCK
 - Use `--rm` for automatic container cleanup; `--network host` for simplicity
 - Custom user mounts default to read-only
 - Only pass environment variables explicitly listed in config
+- Container names sanitized to prevent injection via directory names
 
 ## Volume Mounts Reference
 

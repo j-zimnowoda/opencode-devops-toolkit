@@ -2,9 +2,10 @@
 
 # config-lib.sh - Shared configuration module for opencode-dockerized
 # This file is sourced by other scripts (not executed directly)
-# Provides: config parsing, docker arg building, and interactive prompts
+# Provides: config parsing, docker arg building, shared volume logic, and interactive prompts
 
-set -e
+# NOTE: Do not use "set -e" here — this is a library file sourced by callers.
+# Let calling scripts control their own error handling.
 
 # ============================================
 # CONSTANTS
@@ -67,7 +68,121 @@ declare -a CUSTOM_MOUNTS=()      # Array of "host_path:container_path[:rw]"
 declare -a CUSTOM_ENV_VARS=()    # Array of "VARIABLE_NAME"
 declare -a DOCKER_MOUNT_ARGS=()  # Array of docker -v arguments (populated by build_mount_args)
 declare -a DOCKER_ENV_ARGS=()    # Array of docker -e arguments (populated by build_env_args)
+declare -a VOLUME_ARGS=()        # Array of standard volume mount arguments (populated by build_standard_volume_args)
 SSH_AGENT_SUPPORT=false          # Boolean flag for SSH agent forwarding support
+
+# ============================================
+# SHARED HELPERS
+# ============================================
+
+# Ensure all required OpenCode directories exist on host
+ensure_opencode_dirs() {
+    mkdir -p "$HOME/.local/share/opencode" 2>/dev/null || true
+    mkdir -p "$HOME/.cache/opencode" 2>/dev/null || true
+    mkdir -p "$HOME/.cache/oh-my-opencode" 2>/dev/null || true
+    mkdir -p "$HOME/.config/opencode" 2>/dev/null || true
+}
+
+# Check if Docker image exists locally
+# Usage: check_image "$IMAGE_NAME"
+check_image() {
+    local image_name="$1"
+    if ! docker image inspect "$image_name" >/dev/null 2>&1; then
+        config_error "Docker image '$image_name' not found. Run '$0 build' first."
+        return 1
+    fi
+}
+
+# Sanitize a string for use as part of a Docker container name
+# Docker container names must match [a-zA-Z0-9][a-zA-Z0-9_.-]
+# Usage: sanitize_container_name "my project dir"
+sanitize_container_name() {
+    local name="$1"
+    name=$(echo "$name" | tr -cd '[:alnum:]._-')
+    # Ensure it starts with alphanumeric
+    while [[ "$name" =~ ^[^[:alnum:]] ]]; do name="${name#?}"; done
+    [ -z "$name" ] && name="project"
+    echo "$name"
+}
+
+# Generate a random hex suffix for container names
+generate_random_suffix() {
+    printf '%04x%04x' $RANDOM $RANDOM
+}
+
+# Build common Docker run arguments shared by run_opencode and run_auth
+# Populates DOCKER_COMMON_ARGS array
+# Usage: build_common_docker_args
+build_common_docker_args() {
+    # shellcheck disable=SC2034  # DOCKER_COMMON_ARGS is used by callers that source this file
+    DOCKER_COMMON_ARGS=(
+        --rm
+        --network host
+        -e "HOST_UID=$(id -u)"
+        -e "HOST_GID=$(id -g)"
+        -e "TERM=${TERM:-xterm-256color}"
+    )
+}
+
+# Build standard volume mount arguments for OpenCode directories
+# Populates VOLUME_ARGS array
+# Usage: build_standard_volume_args "/path/to/project" [include_docker_socket]
+build_standard_volume_args() {
+    local project_dir="$1"
+    local include_docker_socket="${2:-false}"
+
+    VOLUME_ARGS=()
+
+    # Project directory (read-write)
+    VOLUME_ARGS+=(-v "$project_dir:/workspace")
+
+    # OpenCode configuration directory (read-only)
+    # Includes: opencode.json, AGENTS.md, .env, agent/, command/, plugin/, node_modules/, etc.
+    if [ -d "$HOME/.config/opencode" ]; then
+        VOLUME_ARGS+=(-v "$HOME/.config/opencode:/home/coder/.config/opencode:ro")
+    else
+        config_warning "OpenCode config directory not found at $HOME/.config/opencode"
+    fi
+
+    # OpenCode data directory (read-write for auth, logs, sessions, storage)
+    if [ -d "$HOME/.local/share/opencode" ]; then
+        VOLUME_ARGS+=(-v "$HOME/.local/share/opencode:/home/coder/.local/share/opencode")
+    else
+        config_warning "OpenCode data directory not found at $HOME/.local/share/opencode"
+        config_info "You'll need to run 'opencode auth login' inside the container"
+    fi
+
+    # OpenCode provider package cache (improves startup time and prevents API errors)
+    # See: https://opencode.ai/docs/troubleshooting/#ai_apicallerror-and-provider-package-issues
+    if [ -d "$HOME/.cache/opencode" ]; then
+        VOLUME_ARGS+=(-v "$HOME/.cache/opencode:/home/coder/.cache/opencode")
+    fi
+
+    # Oh My OpenCode cache directory
+    if [ -d "$HOME/.cache/oh-my-opencode" ]; then
+        VOLUME_ARGS+=(-v "$HOME/.cache/oh-my-opencode:/home/coder/.cache/oh-my-opencode")
+    fi
+
+    # MCP authentication directory (optional)
+    if [ -d "$HOME/.mcp-auth" ]; then
+        VOLUME_ARGS+=(-v "$HOME/.mcp-auth:/home/coder/.mcp-auth:ro")
+    fi
+
+    # Gradle properties (optional)
+    if [ -f "$HOME/.gradle/gradle.properties" ]; then
+        VOLUME_ARGS+=(-v "$HOME/.gradle/gradle.properties:/home/coder/.gradle/gradle.properties:ro")
+    fi
+
+    # NPM configuration (optional)
+    if [ -f "$HOME/.npmrc" ]; then
+        VOLUME_ARGS+=(-v "$HOME/.npmrc:/home/coder/.npmrc:ro")
+    fi
+
+    # Docker socket (optional, for Docker-in-Docker operations)
+    if [ "$include_docker_socket" = true ] && [ -S /var/run/docker.sock ]; then
+        VOLUME_ARGS+=(-v /var/run/docker.sock:/var/run/docker.sock)
+    fi
+}
 
 # ============================================
 # CONFIG FILE OPERATIONS
@@ -112,45 +227,49 @@ load_config() {
         config_warning "Config file not found at $CONFIG_FILE"
         return 1
     fi
-    
+
     CUSTOM_MOUNTS=()
     CUSTOM_ENV_VARS=()
-    
+
     # Read mounts (lines starting with "mount.")
     while IFS='=' read -r key value; do
+        # Skip comments and non-mount lines
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
         [[ "$key" =~ ^[[:space:]]*mount\. ]] || continue
         # Remove leading/trailing whitespace
         value="${value#"${value%%[![:space:]]*}"}"
         value="${value%"${value##*[![:space:]]}"}"
         [ -n "$value" ] && CUSTOM_MOUNTS+=("$value")
     done < "$CONFIG_FILE"
-    
+
     # Read env vars (lines starting with "env.")
     while IFS='=' read -r key value; do
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
         [[ "$key" =~ ^[[:space:]]*env\. ]] || continue
         # Remove leading/trailing whitespace
         value="${value#"${value%%[![:space:]]*}"}"
         value="${value%"${value##*[![:space:]]}"}"
         [ -n "$value" ] && CUSTOM_ENV_VARS+=("$value")
     done < "$CONFIG_FILE"
-    
+
     # Read settings (lines starting with "setting.")
     SSH_AGENT_SUPPORT=false
     while IFS='=' read -r key value; do
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
         [[ "$key" =~ ^[[:space:]]*setting\.ssh_agent_support ]] || continue
         # Remove leading/trailing whitespace
         value="${value#"${value%%[![:space:]]*}"}"
         value="${value%"${value##*[![:space:]]}"}"
         [[ "$value" == "true" ]] && SSH_AGENT_SUPPORT=true
     done < "$CONFIG_FILE"
-    
+
     return 0
 }
 
 # Save current arrays to config file
 save_config() {
     mkdir -p "$CONFIG_DIR"
-    
+
     {
         echo "# OpenCode Dockerized User Configuration"
         echo "# Generated by setup.sh - edit manually or re-run setup.sh to modify"
@@ -162,24 +281,24 @@ save_config() {
         echo ""
         echo "# Custom volume mounts (read-only by default)"
         echo "# Format: mount.<name>=<host_path>:<container_path>[:rw]"
-        
+
         if [ ${#CUSTOM_MOUNTS[@]} -gt 0 ]; then
             for i in "${!CUSTOM_MOUNTS[@]}"; do
-                echo "mount.custom$(($i + 1))=${CUSTOM_MOUNTS[$i]}"
+                echo "mount.custom$(( i + 1 ))=${CUSTOM_MOUNTS[$i]}"
             done
         fi
-        
+
         echo ""
         echo "# Environment variables to pass from host to container"
         echo "# Format: env.<name>=<variable_name>"
-        
+
         if [ ${#CUSTOM_ENV_VARS[@]} -gt 0 ]; then
             for i in "${!CUSTOM_ENV_VARS[@]}"; do
-                echo "env.custom$(($i + 1))=${CUSTOM_ENV_VARS[$i]}"
+                echo "env.custom$(( i + 1 ))=${CUSTOM_ENV_VARS[$i]}"
             done
         fi
     } > "$CONFIG_FILE"
-    
+
     config_success "Saved configuration to $CONFIG_FILE"
 }
 
@@ -196,17 +315,17 @@ parse_config() {
 # Populates DOCKER_MOUNT_ARGS array with -v arguments
 build_mount_args() {
     DOCKER_MOUNT_ARGS=()
-    
+
     for mount in "${CUSTOM_MOUNTS[@]}"; do
-        # Expand ~ to home directory
-        mount="${mount/\~/$HOME}"
-        
+        # Expand all occurrences of ~ to home directory
+        mount="${mount//\~/$HOME}"
+
         # Extract host_path, container_path, and mode
         local host_path="${mount%%:*}"
         local rest="${mount#*:}"
         local container_path="${rest%:*}"
         local mode="${rest##*:}"
-        
+
         # Validate mode is either not set or "rw"
         if [ "$mode" = "$container_path" ]; then
             # No mode specified, default to read-only
@@ -218,7 +337,7 @@ build_mount_args() {
             DOCKER_MOUNT_ARGS+=(-v "$host_path:$container_path:$mode")
         fi
     done
-    
+
     # Handle SSH agent forwarding if enabled
     if [ "$SSH_AGENT_SUPPORT" = true ]; then
         if [ -n "$SSH_AUTH_SOCK" ]; then
@@ -237,11 +356,17 @@ build_mount_args() {
 # Populates DOCKER_ENV_ARGS array with -e arguments
 build_env_args() {
     DOCKER_ENV_ARGS=()
-    
+
     for var_name in "${CUSTOM_ENV_VARS[@]}"; do
+        # Validate variable name matches expected pattern
+        if ! [[ "$var_name" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
+            config_warning "Invalid variable name in config: $var_name (must be uppercase with underscores, skipping)"
+            continue
+        fi
+
         # Get the value from the current environment
         local var_value="${!var_name}"
-        
+
         # Only add if the variable is set in the environment
         if [ -n "$var_value" ]; then
             DOCKER_ENV_ARGS+=(-e "$var_name=$var_value")
@@ -249,7 +374,7 @@ build_env_args() {
             config_warning "Environment variable '$var_name' not set in host environment (skipping)"
         fi
     done
-    
+
     # Handle SSH agent forwarding if enabled
     if [ "$SSH_AGENT_SUPPORT" = true ]; then
         if [ -n "$SSH_AUTH_SOCK" ]; then
@@ -268,26 +393,26 @@ add_mount() {
     local host_path="$1"
     local container_path="$2"
     local mode="${3:-}"
-    
+
     if [ -z "$host_path" ] || [ -z "$container_path" ]; then
         config_error "add_mount requires host_path and container_path"
         return 1
     fi
-    
+
     # Validate host path exists
     local expanded_path="${host_path/\~/$HOME}"
     if [ ! -e "$expanded_path" ]; then
         config_warning "Host path does not exist: $expanded_path"
     fi
-    
+
     if [ -n "$mode" ] && [ "$mode" != "ro" ] && [ "$mode" != "rw" ]; then
         config_error "Invalid mode: $mode (must be 'ro' or 'rw')"
         return 1
     fi
-    
+
     local mount_entry="$host_path:$container_path"
     [ -n "$mode" ] && mount_entry="$mount_entry:$mode"
-    
+
     CUSTOM_MOUNTS+=("$mount_entry")
 }
 
@@ -295,12 +420,12 @@ add_mount() {
 # add_env_var <VARIABLE_NAME>
 add_env_var() {
     local var_name="$1"
-    
+
     if [ -z "$var_name" ]; then
         config_error "add_env_var requires variable name"
         return 1
     fi
-    
+
     CUSTOM_ENV_VARS+=("$var_name")
 }
 
@@ -308,17 +433,17 @@ add_env_var() {
 # remove_mount <index>
 remove_mount() {
     local index="$1"
-    
+
     if [ -z "$index" ]; then
         config_error "remove_mount requires index"
         return 1
     fi
-    
+
     if [ "$index" -lt 0 ] || [ "$index" -ge ${#CUSTOM_MOUNTS[@]} ]; then
         config_error "Invalid index: $index"
         return 1
     fi
-    
+
     unset 'CUSTOM_MOUNTS[$index]'
     CUSTOM_MOUNTS=("${CUSTOM_MOUNTS[@]}")  # Reindex array
 }
@@ -327,17 +452,17 @@ remove_mount() {
 # remove_env_var <index>
 remove_env_var() {
     local index="$1"
-    
+
     if [ -z "$index" ]; then
         config_error "remove_env_var requires index"
         return 1
     fi
-    
+
     if [ "$index" -lt 0 ] || [ "$index" -ge ${#CUSTOM_ENV_VARS[@]} ]; then
         config_error "Invalid index: $index"
         return 1
     fi
-    
+
     unset 'CUSTOM_ENV_VARS[$index]'
     CUSTOM_ENV_VARS=("${CUSTOM_ENV_VARS[@]}")  # Reindex array
 }
@@ -351,7 +476,7 @@ remove_env_var() {
 suggest_container_path() {
     local host_path="$1"
     local default="${2:-/home/coder/$(basename "$host_path")}"
-    
+
     # For common paths, suggest sensible defaults
     if [[ "$host_path" == *"/.gitconfig" ]]; then
         echo "/home/coder/.gitconfig"
@@ -373,10 +498,10 @@ prompt_config_mode() {
         CONFIG_MODE="new"
         return 0
     fi
-    
+
     echo ""
     config_info "Configuration file already exists at $CONFIG_FILE"
-    
+
     PS3="Choose an option: "
     select mode in "Append (add new entries)" "Overwrite (replace config)" "Skip (keep existing)"; do
         case "$mode" in
@@ -410,36 +535,37 @@ prompt_custom_mounts() {
     echo "Enter host paths to mount in the container (read-only by default)"
     echo "Press Enter with empty input to finish"
     echo ""
-    
+
     while true; do
-        read -p "Host path: " host_path
-        
+        read -r -p "Host path: " host_path
+
         # Allow blank to exit
         if [ -z "$host_path" ]; then
             break
         fi
-        
+
         # Expand ~ for validation
         local expanded_path="${host_path/\~/$HOME}"
-        
+
         if [ ! -e "$expanded_path" ]; then
             config_warning "Path does not exist: $expanded_path"
-            read -p "Continue anyway? (y/N): " -r proceed
+            read -r -p "Continue anyway? (y/N): " proceed
             [[ "$proceed" =~ ^[Yy]$ ]] || continue
         fi
-        
+
         # Suggest container path
-        local suggested=$(suggest_container_path "$host_path")
-        read -p "Container path [$suggested]: " container_path
+        local suggested
+        suggested=$(suggest_container_path "$host_path")
+        read -r -p "Container path [$suggested]: " container_path
         container_path="${container_path:-$suggested}"
-        
+
         # Ask about read-write
-        read -p "Read-write? (y/N): " -r rw_mode
+        read -r -p "Read-write? (y/N): " rw_mode
         local mode=""
         if [[ "$rw_mode" =~ ^[Yy]$ ]]; then
             mode="rw"
         fi
-        
+
         # Add the mount
         add_mount "$host_path" "$container_path" "$mode"
         config_success "Added mount: $host_path -> $container_path${mode:+ ($mode)}"
@@ -455,33 +581,33 @@ prompt_env_vars() {
     echo "Specify host environment variables to pass to the container"
     echo "Press Enter with empty input to finish"
     echo ""
-    
+
     echo "Common examples:"
     echo "  AWS_BEARER_TOKEN_BEDROCK - AWS Bedrock API key"
     echo "  CONTEXT7_API_KEY - Context7 API key"
     echo ""
-    
+
     while true; do
-        read -p "Environment variable name: " var_name
-        
+        read -r -p "Environment variable name: " var_name
+
         # Allow blank to exit
         if [ -z "$var_name" ]; then
             break
         fi
-        
+
         # Validate variable name (basic check)
         if ! [[ "$var_name" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
             config_error "Invalid variable name: $var_name (must be uppercase with underscores)"
             continue
         fi
-        
+
         # Check if variable is set in environment
         if [ -z "${!var_name}" ]; then
             config_warning "Variable '$var_name' is not set in current environment"
-            read -p "Add anyway? (y/N): " -r proceed
+            read -r -p "Add anyway? (y/N): " proceed
             [[ "$proceed" =~ ^[Yy]$ ]] || continue
         fi
-        
+
         # Add the variable
         add_env_var "$var_name"
         config_success "Added environment variable: $var_name"
@@ -496,8 +622,8 @@ prompt_ssh_agent_support() {
     echo "Enable this if you use SSH agent forwarding for git operations over SSH."
     echo "This automatically mounts the SSH socket and passes the SSH_AUTH_SOCK variable."
     echo ""
-    
-    read -p "Enable SSH agent forwarding support? (y/N): " -r ssh_agent
+
+    read -r -p "Enable SSH agent forwarding support? (y/N): " ssh_agent
     if [[ "$ssh_agent" =~ ^[Yy]$ ]]; then
         SSH_AGENT_SUPPORT=true
         config_success "SSH agent forwarding support enabled"
@@ -513,7 +639,7 @@ print_config() {
     echo "Current configuration:"
     echo "  Config file: $CONFIG_FILE"
     echo "  SSH agent forwarding: $SSH_AGENT_SUPPORT"
-    
+
     if [ ${#CUSTOM_MOUNTS[@]} -gt 0 ]; then
         echo ""
         echo "  Custom mounts:"
@@ -524,7 +650,7 @@ print_config() {
         echo ""
         echo "  Custom mounts: (none)"
     fi
-    
+
     if [ ${#CUSTOM_ENV_VARS[@]} -gt 0 ]; then
         echo ""
         echo "  Environment variables:"
@@ -546,7 +672,7 @@ print_config() {
 # Handles: mode selection, prompts, config persistence
 interactive_config_setup() {
     prompt_config_mode
-    
+
     case "$CONFIG_MODE" in
         skip)
             echo ""
@@ -562,7 +688,7 @@ interactive_config_setup() {
             print_config
             ;;
         new)
-            read -p "Would you like to configure custom mounts and environment variables now? (y/N): " -r setup_custom
+            read -r -p "Would you like to configure custom mounts and environment variables now? (y/N): " setup_custom
             if [[ "$setup_custom" =~ ^[Yy]$ ]]; then
                 prompt_ssh_agent_support
                 prompt_custom_mounts

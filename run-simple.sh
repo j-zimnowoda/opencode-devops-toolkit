@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Alternative simple runner without docker-compose
-# This provides a more portable option
+# Alternative simple runner for OpenCode Docker
+# Uses shared volume logic from config-lib.sh but with minimal overhead
 
 set -e
 
@@ -11,13 +11,41 @@ IMAGE_NAME="opencode-dockerized:latest"
 # Source the shared config module
 source "$SCRIPT_DIR/config-lib.sh"
 
+# Show help if requested
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "help" ]; then
+    cat << EOF
+OpenCode Docker Simple Runner
+
+Usage: $(basename "$0") [DIR]
+
+Runs OpenCode in a Docker container with a simplified setup.
+Uses the same shared configuration as opencode-dockerized.sh.
+
+Arguments:
+    DIR     Project directory to mount (default: current directory)
+
+Options:
+    --help, -h    Show this help message
+
+For full feature set, use opencode-dockerized.sh instead.
+EOF
+    exit 0
+fi
+
 # Get project directory (default to current directory)
 PROJECT_DIR="${1:-$(pwd)}"
+
+# Validate project directory exists
+if [ ! -d "$PROJECT_DIR" ]; then
+    config_error "Project directory does not exist: $PROJECT_DIR"
+    exit 1
+fi
+
 PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
 
 # Build image if it doesn't exist
-if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${IMAGE_NAME}$"; then
-    echo "Building Docker image..."
+if ! docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+    config_info "Docker image not found, building..."
     docker build -t "$IMAGE_NAME" "$SCRIPT_DIR"
 fi
 
@@ -25,53 +53,21 @@ fi
 parse_config
 build_mount_args
 build_env_args
+build_common_docker_args
 
-# Build volume mount arguments - only mount files that exist
-VOLUME_ARGS="-v $PROJECT_DIR:/workspace"
+# Build standard volume mount arguments (with Docker socket)
+build_standard_volume_args "$PROJECT_DIR" true
 
-# OpenCode configuration directory (read-only)
-# Includes: opencode.json, AGENTS.md, .env, agent/, command/, plugin/, node_modules/, etc.
-[ -d "$HOME/.config/opencode" ] && \
-    VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.config/opencode:/home/coder/.config/opencode:ro"
-
-# OpenCode data directory (read-write for auth, logs, sessions, storage)
-# Mount entire .local/share/opencode directory
-[ -d "$HOME/.local/share/opencode" ] && \
-    VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.local/share/opencode:/home/coder/.local/share/opencode"
-
-# OpenCode provider package cache (improves startup time and prevents API errors)
-# See: https://opencode.ai/docs/troubleshooting/#ai_apicallerror-and-provider-package-issues
-[ -d "$HOME/.cache/opencode" ] && \
-    VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.cache/opencode:/home/coder/.cache/opencode"
-
-# Oh My OpenCode cache (for oh-my-opencode plugin)
-[ -d "$HOME/.cache/oh-my-opencode" ] && \
-    VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.cache/oh-my-opencode:/home/coder/.cache/oh-my-opencode"
-
-# MCP authentication directory (optional)
-[ -d "$HOME/.mcp-auth" ] && \
-    VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.mcp-auth:/home/coder/.mcp-auth:ro"
-
-# Gradle properties (optional)
-[ -f "$HOME/.gradle/gradle.properties" ] && \
-    VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.gradle/gradle.properties:/home/coder/.gradle/gradle.properties:ro"
-
-# NPM configuration (optional)
-[ -f "$HOME/.npmrc" ] && \
-    VOLUME_ARGS="$VOLUME_ARGS -v $HOME/.npmrc:/home/coder/.npmrc:ro"
-
-# Custom mounts and env vars from config
-# (Already built by build_mount_args and build_env_args above)
+# Generate unique container name
+local_dir_name=$(sanitize_container_name "$(basename "$PROJECT_DIR")")
+local_random_suffix=$(generate_random_suffix)
+CONTAINER_NAME="opencode-${local_dir_name}-${local_random_suffix}"
 
 # Run OpenCode in Docker
-docker run -it --rm \
-    --name opencode-dockerized \
-    --network host \
-    --security-opt no-new-privileges:true \
-    -e HOST_UID="$(id -u)" \
-    -e HOST_GID="$(id -g)" \
-    -e TERM="${TERM:-xterm-256color}" \
-    $VOLUME_ARGS \
+docker run -it \
+    --name "$CONTAINER_NAME" \
+    "${DOCKER_COMMON_ARGS[@]}" \
+    "${VOLUME_ARGS[@]}" \
     "${DOCKER_MOUNT_ARGS[@]}" \
     "${DOCKER_ENV_ARGS[@]}" \
     "$IMAGE_NAME" \

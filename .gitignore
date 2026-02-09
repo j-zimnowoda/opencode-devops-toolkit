@@ -17,3 +17,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Sensitive files (should never be committed)
+auth.json
+*.pem
+*.key
+credentials.json

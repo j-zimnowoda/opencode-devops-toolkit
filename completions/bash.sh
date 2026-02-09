@@ -8,21 +8,27 @@ _opencode_dockerized() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="run auth build update version help --help -h"
+    opts="run auth build update version config clean help --help -h"
 
     case "${prev}" in
         run)
             # Complete directory paths for run command
-            COMPREPLY=( $(compgen -d -- "${cur}") )
+            mapfile -t COMPREPLY < <(compgen -d -- "${cur}")
+            return 0
+            ;;
+        config)
+            # Complete config subcommands
+            mapfile -t COMPREPLY < <(compgen -W "show edit path" -- "${cur}")
             return 0
             ;;
         *)
             ;;
     esac
 
-    COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+    mapfile -t COMPREPLY < <(compgen -W "${opts}" -- "${cur}")
     return 0
 }
 
 complete -F _opencode_dockerized opencode-dockerized.sh
 complete -F _opencode_dockerized ./opencode-dockerized.sh
+complete -F _opencode_dockerized ocd

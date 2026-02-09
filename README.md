@@ -115,29 +115,30 @@ Autocompletion support is available for both Bash and Zsh:
 **For Bash:**
 ```bash
 # Source the completion file
-source /path/to/opencode-dockerized/opencode-dockerized-completion.bash
+source /path/to/opencode-dockerized/completions/bash.sh
 
 # Or add to ~/.bashrc for permanent installation
-echo "source /path/to/opencode-dockerized/opencode-dockerized-completion.bash" >> ~/.bashrc
+echo "source /path/to/opencode-dockerized/completions/bash.sh" >> ~/.bashrc
 ```
 
 **For Zsh:**
 ```bash
 # Source the completion file
-source /path/to/opencode-dockerized/opencode-dockerized-completion.zsh
+source /path/to/opencode-dockerized/completions/zsh.sh
 
 # Or add to ~/.zshrc for permanent installation
-echo "source /path/to/opencode-dockerized/opencode-dockerized-completion.zsh" >> ~/.zshrc
+echo "source /path/to/opencode-dockerized/completions/zsh.sh" >> ~/.zshrc
 
 # For system-wide installation (requires sudo)
-sudo cp /path/to/opencode-dockerized/opencode-dockerized-completion.zsh /usr/local/share/zsh/site-functions/_opencode-dockerized
+sudo cp /path/to/opencode-dockerized/completions/zsh.sh /usr/local/share/zsh/site-functions/_opencode-dockerized
 ```
 
 After installation, you'll get:
-- ✓ Command completion (`run`, `build`, `update`, `version`, `help`)
-- ✓ Directory completion for the `run` command
-- ✓ Helpful descriptions for each command
-- ✓ Works with both `opencode-dockerized.sh` and the `ocd` alias
+- Command completion (`run`, `build`, `update`, `version`, `auth`, `config`, `clean`, `help`)
+- Subcommand completion for `config` (`show`, `edit`, `path`)
+- Directory completion for the `run` command
+- Helpful descriptions for each command
+- Works with both `opencode-dockerized.sh` and the `ocd` alias
 
 ## 📖 Usage
 
@@ -149,8 +150,22 @@ After installation, you'll get:
 ./opencode-dockerized.sh run [DIR]      # Run OpenCode (default: current dir)
 ./opencode-dockerized.sh update         # Update OpenCode version
 ./opencode-dockerized.sh version        # Show version
+./opencode-dockerized.sh config show    # Show parsed configuration
+./opencode-dockerized.sh config edit    # Edit config in $EDITOR
+./opencode-dockerized.sh config path    # Print config file path
+./opencode-dockerized.sh clean          # Remove the Docker image
 ./opencode-dockerized.sh help           # Show help
 ```
+
+### Dry Run Mode
+
+Preview the `docker run` command without executing it:
+
+```bash
+DRY_RUN=true ./opencode-dockerized.sh run /path/to/project
+```
+
+This prints the full Docker command with all volume mounts, environment variables, and flags — useful for debugging configuration issues.
 
 ### Alternative Runners
 
@@ -182,7 +197,7 @@ Let's add a new feature for user profiles
 
 ### Environment Variables
 
-Create a `.env` file (copy from `.env.example`):
+Create a `.env` file (copy from `examples/.env.example`):
 
 ```bash
 # Project directory to work on
@@ -485,7 +500,7 @@ docker build --no-cache -t opencode-dockerized:latest .
 
 ### User Scripts
 
-- **`opencode-dockerized.sh`** - Main wrapper with all features (build, run, update, version, help)
+- **`opencode-dockerized.sh`** - Main wrapper with all features (build, run, auth, update, version, config, clean, help)
 - **`run-simple.sh`** - Simplified runner script
 - **`setup.sh`** - First-time initialization (creates config directories, prompts for custom config)
 
@@ -493,16 +508,19 @@ docker build --no-cache -t opencode-dockerized:latest .
 
 - **`config-lib.sh`** - Shared configuration library (sourced by other scripts, handles mounts and env vars)
 
-### Shell Completion
+### Shell Completion (`completions/`)
 
-- **`opencode-dockerized-completion.bash`** - Bash shell completion script
-- **`opencode-dockerized-completion.zsh`** - Zsh shell completion script
+- **`completions/bash.sh`** - Bash shell completion script
+- **`completions/zsh.sh`** - Zsh shell completion script
+
+### Examples (`examples/`)
+
+- **`examples/.env.example`** - Template for environment variables
+- **`examples/config.example`** - Example custom configuration file
 
 ### Configuration
-
-- **`.env.example`** - Template for environment variables
-- **`config.example`** - Example custom configuration file
 - **`.gitignore`** - Excludes sensitive files from Git
+- **`.dockerignore`** - Excludes non-essential files from Docker build context
 
 ### How It Works
 

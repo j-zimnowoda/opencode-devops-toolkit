@@ -5,14 +5,16 @@
 
 set -e
 
-# Source the shared config module
+# Source the shared config module (provides colors, logging, and config functions)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/config-lib.sh"
 
+# Define colors before use (config-lib.sh provides defaults via : "${VAR:=...}")
+RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 echo -e "${BLUE}OpenCode Docker Setup${NC}"
 echo "================================"
@@ -34,7 +36,7 @@ ensure_any_file() {
     local default_content="$1"
     shift
     local files=("$@")
-    
+
     # Check if any file already exists
     for file in "${files[@]}"; do
         if [ -f "$file" ]; then
@@ -42,7 +44,7 @@ ensure_any_file() {
             return 0
         fi
     done
-    
+
     # None exist, create the first one
     local first_file="${files[0]}"
     echo -e "${YELLOW}Creating file: $first_file${NC}"

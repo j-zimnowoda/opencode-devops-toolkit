@@ -3,26 +3,15 @@ set -e
 
 # This script runs as root and handles UID/GID mapping before switching to coder user
 
-# Check if Docker socket is mounted from host
-# We always use the host Docker socket (no Docker-in-Docker daemon)
-if [ -S /var/run/docker.sock ]; then
-    # Docker socket exists - verify it's accessible
-    if docker info >/dev/null 2>&1; then
-        echo "✓ Docker socket is available and working"
-    else
-        echo "⚠ Docker socket exists but is not accessible yet (fixing permissions...)"
-    fi
-fi
-
 # Fix Docker socket permissions if mounted from host
 if [ -S /var/run/docker.sock ]; then
     DOCKER_SOCK_GID=$(stat -c '%g' /var/run/docker.sock)
-    
+
     # Create or use existing group with matching GID
     if ! getent group "$DOCKER_SOCK_GID" >/dev/null 2>&1; then
         groupadd -g "$DOCKER_SOCK_GID" docker_host 2>/dev/null || true
     fi
-    
+
     # Add coder user to the docker socket's group for access
     usermod -aG "$DOCKER_SOCK_GID" coder 2>/dev/null || true
 fi
@@ -38,19 +27,31 @@ CURRENT_GID=$(id -g coder)
 # Update UID/GID if they don't match
 if [ "$TARGET_UID" != "$CURRENT_UID" ] || [ "$TARGET_GID" != "$CURRENT_GID" ]; then
     echo "Adjusting coder user UID:GID from $CURRENT_UID:$CURRENT_GID to $TARGET_UID:$TARGET_GID"
-    
+
     # Update group ID if needed
     if [ "$TARGET_GID" != "$CURRENT_GID" ]; then
         groupmod -g "$TARGET_GID" coder 2>/dev/null || true
     fi
-    
+
     # Update user ID if needed
     if [ "$TARGET_UID" != "$CURRENT_UID" ]; then
         usermod -u "$TARGET_UID" coder 2>/dev/null || true
     fi
-    
-    # Fix ownership of home directory
-    chown -R "$TARGET_UID:$TARGET_GID" /home/coder 2>/dev/null || true
+
+    # Fix ownership of essential home directory contents only
+    # Avoid full recursive chown on NVM/SDKMAN trees which can be very slow
+    echo "Fixing home directory permissions..."
+    chown "$TARGET_UID:$TARGET_GID" /home/coder 2>/dev/null || true
+    chown -R "$TARGET_UID:$TARGET_GID" /home/coder/.config 2>/dev/null || true
+    chown -R "$TARGET_UID:$TARGET_GID" /home/coder/.local 2>/dev/null || true
+    chown -R "$TARGET_UID:$TARGET_GID" /home/coder/.cache 2>/dev/null || true
+    chown -R "$TARGET_UID:$TARGET_GID" /home/coder/.npm 2>/dev/null || true
+    chown -R "$TARGET_UID:$TARGET_GID" /home/coder/.gradle 2>/dev/null || true
+    chown -R "$TARGET_UID:$TARGET_GID" /home/coder/.m2 2>/dev/null || true
+    chown -R "$TARGET_UID:$TARGET_GID" /home/coder/.bun 2>/dev/null || true
+    # NVM and SDKMAN: only fix top-level ownership, not deeply nested files
+    chown "$TARGET_UID:$TARGET_GID" /home/coder/.nvm 2>/dev/null || true
+    chown "$TARGET_UID:$TARGET_GID" /home/coder/.sdkman 2>/dev/null || true
 fi
 
 # NOTE: We do NOT change ownership of /workspace
@@ -65,7 +66,7 @@ export USER=coder
 # Source NVM and SDKMAN to make Node.js and Java available
 export NVM_DIR="/home/coder/.nvm"
 
-# Use gosu or su-exec style execution with proper environment
+# Use setpriv to drop privileges and exec the command as the mapped user
 exec setpriv --reuid="$TARGET_UID" --regid="$TARGET_GID" --init-groups \
-    bash -c "source $NVM_DIR/nvm.sh && source /home/coder/.sdkman/bin/sdkman-init.sh 2>/dev/null || true && exec \"\$@\"" \
+    bash -c "source \$NVM_DIR/nvm.sh && source /home/coder/.sdkman/bin/sdkman-init.sh 2>/dev/null || true && exec \"\$@\"" \
     -- "$@"
