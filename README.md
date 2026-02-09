@@ -1,5 +1,7 @@
 # OpenCode Dockerized - Secure Sandbox Environment
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Run OpenCode in a secure, isolated Docker container with controlled access to your projects. This setup provides OpenCode with just enough access to be useful while maintaining strong security boundaries.
 
 ## Table of Contents
@@ -530,6 +532,48 @@ const container = await new GenericContainer("postgres:15-alpine")
 - Cleanup happens automatically via Testcontainers' cleanup hooks
 - Volume mounts in test containers use host paths, not container paths
 - Network modes (bridge, host) work as expected
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+### Third-Party Software
+
+This project uses and packages the following third-party software:
+
+- **[OpenCode](https://github.com/sst/opencode)** - Apache 2.0 License (packaged in container)
+- **[Oh My OpenCode](https://github.com/code-yeongyu/oh-my-opencode)** - MIT License (optional plugin support)
+- **Docker CLI** - Apache 2.0 License (packaged in container)
+- **Node.js** - MIT License (packaged in container)
+- **Bun** - MIT License (packaged in container)
+- **ast-grep** - MIT License (packaged in container)
+
+Each component retains its original license. This wrapper script and configuration are provided under the MIT License.
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how you can help:
+
+1. **Fork the repository**
+2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Make your changes** and test them
+4. **Commit your changes** (`git commit -m 'Add amazing feature'`)
+5. **Push to the branch** (`git push origin feature/amazing-feature`)
+6. **Open a Pull Request**
+
+### Guidelines
+
+- Follow existing shell script style (see [AGENTS.md](AGENTS.md) for conventions)
+- Test changes with both `opencode-dockerized.sh` and `run-simple.sh`
+- Update documentation for new features
+- Keep security as a priority
+
+### Reporting Issues
+
+Found a bug or have a suggestion? Please [open an issue](../../issues) with:
+- Clear description of the problem/suggestion
+- Steps to reproduce (for bugs)
+- Your environment (OS, Docker version)
 
 ---
 
