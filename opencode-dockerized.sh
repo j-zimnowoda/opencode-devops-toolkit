@@ -5,7 +5,9 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlinks so SCRIPT_DIR points to the real source directory
+# This allows the script to be invoked via a symlink in PATH (e.g. ~/.local/bin)
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 IMAGE_NAME="opencode-dockerized:latest"
 
 # Colors for output (defined before sourcing config-lib so it picks them up)

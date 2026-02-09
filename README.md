@@ -43,19 +43,19 @@ Run OpenCode in a secure, isolated Docker container with controlled access to yo
 # 1. Navigate to the setup directory
 cd /path/to/opencode-dockerized
 
-# 2. Run setup script (creates config directories if needed)
+# 2. Run setup script (creates config directories, installs globally)
 ./setup.sh
 
 # 3. Build the Docker image
-./opencode-dockerized.sh build
+opencode-dockerized build
 
 # 4. Authenticate with your LLM provider (no local OpenCode needed!)
-./opencode-dockerized.sh auth
+opencode-dockerized auth
 
-# 5. Run OpenCode in your project
-./opencode-dockerized.sh run
+# 5. Run OpenCode in your project (from any directory!)
+opencode-dockerized run
 # or
-./opencode-dockerized.sh run /path/to/your/project
+opencode-dockerized run /path/to/your/project
 ```
 
 ### Authentication
@@ -77,20 +77,37 @@ Your authentication is stored on the host machine and persists across container 
 ### Daily Usage
 
 ```bash
-# Run in current directory
-./opencode-dockerized.sh run
+# Run in current directory (works from anywhere after setup)
+opencode-dockerized run
 
 # Run in specific project
-./opencode-dockerized.sh run ~/projects/my-app
+opencode-dockerized run ~/projects/my-app
 
 # Check version
-./opencode-dockerized.sh version
+opencode-dockerized version
 
 # Update OpenCode
-./opencode-dockerized.sh update
+opencode-dockerized update
 ```
 
-### Create an Alias (Recommended)
+### Global Installation
+
+The `setup.sh` script offers to install `opencode-dockerized` globally by creating a symlink in `~/.local/bin`. This means you can run `opencode-dockerized` from any directory without navigating to the project first.
+
+If you skipped global installation during setup, you can do it manually:
+
+```bash
+# Create symlink (one-time)
+mkdir -p ~/.local/bin
+ln -sf /path/to/opencode-dockerized/opencode-dockerized.sh ~/.local/bin/opencode-dockerized
+
+# Ensure ~/.local/bin is in PATH (add to ~/.bashrc or ~/.zshrc if not)
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+### Create an Alias (Alternative)
+
+If you prefer aliases over the global symlink:
 
 ```bash
 # For Bash users - add to ~/.bashrc
@@ -105,7 +122,7 @@ source ~/.zshrc
 
 # Then use it anywhere
 cd ~/my-project
-ocd
+ocd run
 ```
 
 ### Shell Completion (Optional)
@@ -138,23 +155,23 @@ After installation, you'll get:
 - Subcommand completion for `config` (`show`, `edit`, `path`)
 - Directory completion for the `run` command
 - Helpful descriptions for each command
-- Works with both `opencode-dockerized.sh` and the `ocd` alias
+- Works with `opencode-dockerized.sh`, the global `opencode-dockerized` command, and the `ocd` alias
 
 ## 📖 Usage
 
 ### Available Commands
 
 ```bash
-./opencode-dockerized.sh build          # Build Docker image
-./opencode-dockerized.sh auth           # Authenticate with LLM provider
-./opencode-dockerized.sh run [DIR]      # Run OpenCode (default: current dir)
-./opencode-dockerized.sh update         # Update OpenCode version
-./opencode-dockerized.sh version        # Show version
-./opencode-dockerized.sh config show    # Show parsed configuration
-./opencode-dockerized.sh config edit    # Edit config in $EDITOR
-./opencode-dockerized.sh config path    # Print config file path
-./opencode-dockerized.sh clean          # Remove the Docker image
-./opencode-dockerized.sh help           # Show help
+opencode-dockerized build          # Build Docker image
+opencode-dockerized auth           # Authenticate with LLM provider
+opencode-dockerized run [DIR]      # Run OpenCode (default: current dir)
+opencode-dockerized update         # Update OpenCode version
+opencode-dockerized version        # Show version
+opencode-dockerized config show    # Show parsed configuration
+opencode-dockerized config edit    # Edit config in $EDITOR
+opencode-dockerized config path    # Print config file path
+opencode-dockerized clean          # Remove the Docker image
+opencode-dockerized help           # Show help
 ```
 
 ### Dry Run Mode
@@ -162,7 +179,7 @@ After installation, you'll get:
 Preview the `docker run` command without executing it:
 
 ```bash
-DRY_RUN=true ./opencode-dockerized.sh run /path/to/project
+DRY_RUN=true opencode-dockerized run /path/to/project
 ```
 
 This prints the full Docker command with all volume mounts, environment variables, and flags — useful for debugging configuration issues.
@@ -303,9 +320,9 @@ Users can then:
 ```bash
 git clone <your-repo-url>
 cd opencode-dockerized
-./setup.sh
-./opencode-dockerized.sh build
-./opencode-dockerized.sh run
+./setup.sh              # Sets up config + installs globally
+opencode-dockerized build
+opencode-dockerized run
 ```
 
 **Method 2: Archive Distribution**
@@ -318,8 +335,8 @@ Users extract and run:
 ```bash
 tar -xzf opencode-docker.tar.gz
 cd opencode-dockerized
-./setup.sh
-./opencode-dockerized.sh build
+./setup.sh              # Sets up config + installs globally
+opencode-dockerized build
 ```
 
 **Method 3: Docker Hub**
@@ -464,7 +481,7 @@ echo '{}' > ~/.config/opencode/opencode.json  # or opencode.jsonc
 echo "UID: $(id -u), GID: $(id -g)"
 
 # Rebuild image
-./opencode-dockerized.sh build
+opencode-dockerized build
 ```
 
 ### Container Won't Start
@@ -478,7 +495,7 @@ docker logs opencode-dockerized
 
 # Remove and rebuild
 docker rm -f opencode-dockerized
-./opencode-dockerized.sh build
+opencode-dockerized build
 ```
 
 ### OpenCode Not Updating
@@ -488,7 +505,7 @@ docker rm -f opencode-dockerized
 docker build --no-cache -t opencode-dockerized:latest .
 
 # Or use update command
-./opencode-dockerized.sh update
+opencode-dockerized update
 ```
 
 ## 📁 File Reference

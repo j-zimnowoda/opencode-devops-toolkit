@@ -59,9 +59,9 @@ set -e  # Exit on first error
 
 ### Script Initialization
 
-Resolve own directory, then source shared module:
+Resolve own directory (following symlinks), then source shared module:
 ```bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 source "$SCRIPT_DIR/config-lib.sh"
 ```
 
@@ -83,7 +83,7 @@ source "$SCRIPT_DIR/config-lib.sh"
 - **Always quote variables:** `"$variable"` not `$variable`
 - **Command substitution:** `$()` not backticks
 - **Declare and assign separately:** `local dir_name; dir_name=$(...)` (SC2155)
-- **Absolute paths:** `SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"`
+- **Absolute paths:** `SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"`
 - **Defaults with `:=`:** `CONFIG_DIR="${CONFIG_DIR:-$HOME/.config/opencode-dockerized}"`
 - **Color defaults in modules:** `: "${RED:='\033[0;31m'}"` (avoid overwriting caller-defined values)
 - **Use arrays for Docker args:** Never build docker args as strings — use arrays and `"${array[@]}"`

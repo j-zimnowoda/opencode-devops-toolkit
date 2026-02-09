@@ -31,4 +31,5 @@ _opencode_dockerized() {
 
 complete -F _opencode_dockerized opencode-dockerized.sh
 complete -F _opencode_dockerized ./opencode-dockerized.sh
+complete -F _opencode_dockerized opencode-dockerized
 complete -F _opencode_dockerized ocd

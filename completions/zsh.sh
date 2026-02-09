@@ -45,4 +45,5 @@ _opencode_dockerized() {
 }
 
 compdef _opencode_dockerized opencode-dockerized.sh
+compdef _opencode_dockerized opencode-dockerized
 compdef _opencode_dockerized ocd
