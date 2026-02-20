@@ -69,6 +69,7 @@ declare -a CUSTOM_ENV_VARS=()    # Array of "VARIABLE_NAME"
 declare -a DOCKER_MOUNT_ARGS=()  # Array of docker -v arguments (populated by build_mount_args)
 declare -a DOCKER_ENV_ARGS=()    # Array of docker -e arguments (populated by build_env_args)
 declare -a VOLUME_ARGS=()        # Array of standard volume mount arguments (populated by build_standard_volume_args)
+declare -a GIT_WORKTREE_ARGS=()  # Array of docker args for git worktree support (populated by build_git_worktree_args)
 SSH_AGENT_SUPPORT=false          # Boolean flag for SSH agent forwarding support
 
 # ============================================
@@ -110,6 +111,75 @@ generate_random_suffix() {
     printf '%04x%04x' $RANDOM $RANDOM
 }
 
+# Detect if a directory is a git worktree and return the main repo's .git directory path
+# A worktree has a .git FILE (not directory) containing "gitdir: <path>"
+# Returns (via stdout): "<git_common_dir>" if worktree, empty string otherwise
+# Usage: main_git_dir=$(detect_git_worktree "/path/to/worktree")
+detect_git_worktree() {
+    local project_dir="$1"
+
+    # Quick check: if .git is a directory (normal repo) or doesn't exist, not a worktree
+    if [ ! -f "$project_dir/.git" ]; then
+        return 0
+    fi
+
+    # Use git to reliably resolve paths (handles relative/absolute gitdir pointers)
+    if ! command -v git >/dev/null 2>&1; then
+        config_warning "Git worktree detected but 'git' is not installed on the host — git info will be unavailable in container"
+        return 0
+    fi
+
+    # git rev-parse --git-common-dir gives us the shared .git directory
+    local git_common_dir
+    git_common_dir=$(git -C "$project_dir" rev-parse --git-common-dir 2>/dev/null) || return 0
+
+    # Resolve to absolute path
+    if [[ "$git_common_dir" != /* ]]; then
+        git_common_dir=$(cd "$project_dir" && cd "$git_common_dir" && pwd)
+    else
+        git_common_dir=$(cd "$git_common_dir" && pwd)
+    fi
+
+    # Sanity check: the common dir should be a real .git directory
+    if [ ! -d "$git_common_dir/objects" ] || [ ! -d "$git_common_dir/refs" ]; then
+        return 0
+    fi
+
+    echo "$git_common_dir"
+}
+
+# Build Docker volume/bind args needed for git worktree support
+# When the project is a git worktree, the .git file points to the main repo's
+# .git directory which lives outside the project dir. We mount the main .git
+# directory (read-only) at its real host path so the gitdir pointer resolves
+# correctly inside the container.
+#
+# Read-only is intentional: it preserves the sandbox boundary (container only
+# has write access to the mounted project directory). Read operations like
+# git log, status, diff, and branch work. Write operations (commit, stash,
+# fetch) will fail — run those on the host.
+#
+# Populates GIT_WORKTREE_ARGS array
+# Usage: build_git_worktree_args "/path/to/project"
+build_git_worktree_args() {
+    local project_dir="$1"
+
+    GIT_WORKTREE_ARGS=()
+
+    local git_common_dir
+    git_common_dir=$(detect_git_worktree "$project_dir")
+
+    if [ -z "$git_common_dir" ]; then
+        return 0
+    fi
+
+    config_info "Git worktree detected — mounting main .git directory (read-only) for git support"
+    config_info "Main git directory: $git_common_dir"
+
+    # Mount the main repo's .git directory at its real host path (read-only)
+    GIT_WORKTREE_ARGS+=(-v "$git_common_dir:$git_common_dir:ro")
+}
+
 # Build common Docker run arguments shared by run_opencode and run_auth
 # Populates DOCKER_COMMON_ARGS array
 # Usage: build_common_docker_args
@@ -135,6 +205,9 @@ build_standard_volume_args() {
 
     # Project directory (read-write)
     VOLUME_ARGS+=(-v "$project_dir:/workspace")
+
+    # Git worktree support: mount main .git directory if project is a worktree
+    build_git_worktree_args "$project_dir"
 
     # OpenCode configuration directory (read-only)
     # Includes: opencode.json, AGENTS.md, .env, agent/, command/, plugin/, node_modules/, etc.

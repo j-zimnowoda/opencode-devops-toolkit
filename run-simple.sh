@@ -69,6 +69,7 @@ docker run -it \
     --name "$CONTAINER_NAME" \
     "${DOCKER_COMMON_ARGS[@]}" \
     "${VOLUME_ARGS[@]}" \
+    "${GIT_WORKTREE_ARGS[@]}" \
     "${DOCKER_MOUNT_ARGS[@]}" \
     "${DOCKER_ENV_ARGS[@]}" \
     "$IMAGE_NAME" \

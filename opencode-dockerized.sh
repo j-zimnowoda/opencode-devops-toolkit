@@ -158,6 +158,7 @@ run_opencode() {
         --name "$container_name"
         "${DOCKER_COMMON_ARGS[@]}"
         "${VOLUME_ARGS[@]}"
+        "${GIT_WORKTREE_ARGS[@]}"
         "${DOCKER_MOUNT_ARGS[@]}"
         "${DOCKER_ENV_ARGS[@]}"
         "$IMAGE_NAME"
