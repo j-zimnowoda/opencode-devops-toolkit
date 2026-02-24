@@ -189,4 +189,5 @@ env.aws_bedrock=AWS_BEARER_TOKEN_BEDROCK
 | `~/.cache/opencode/` | `/home/coder/.cache/opencode/` | rw | Provider cache |
 | `~/.cache/oh-my-opencode/` | `/home/coder/.cache/oh-my-opencode/` | rw | Plugin cache |
 | `~/.cache/openspec/` | `/home/coder/.cache/openspec/` | rw | OpenSpec cache (when enabled) |
+| `~/.config/openspec/` | `/home/coder/.config/openspec/` | ro | OpenSpec config (when enabled) |
 | `/var/run/docker.sock` | `/var/run/docker.sock` | rw | Docker socket |

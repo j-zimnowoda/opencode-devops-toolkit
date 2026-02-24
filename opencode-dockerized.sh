@@ -312,7 +312,8 @@ Security Features:
 OpenSpec (Spec-Driven Development):
     When enabled (setting.openspec_support=true in config), OpenSpec is available
     inside the container. On first run for a project, 'openspec init --tools opencode'
-    is automatically executed to set up spec-driven development with OpenCode integration.
+    is automatically executed. On every run, 'openspec update' regenerates instruction
+    files to stay in sync with the installed CLI version.
     See: https://github.com/Fission-AI/OpenSpec/
 
 Note: Docker socket is mounted for Docker-in-Docker support. This grants the

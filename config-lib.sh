@@ -84,9 +84,10 @@ ensure_opencode_dirs() {
     mkdir -p "$HOME/.cache/oh-my-opencode" 2>/dev/null || true
     mkdir -p "$HOME/.config/opencode" 2>/dev/null || true
 
-    # Create OpenSpec cache directory if OpenSpec support is enabled
+    # Create OpenSpec directories if OpenSpec support is enabled
     if [ "$OPENSPEC_SUPPORT" = true ]; then
         mkdir -p "$HOME/.cache/openspec" 2>/dev/null || true
+        mkdir -p "$HOME/.config/openspec" 2>/dev/null || true
     fi
 }
 
@@ -249,6 +250,12 @@ build_standard_volume_args() {
         config_info "OpenSpec support enabled — cache directory mounted"
     fi
 
+    # OpenSpec config directory (only when OpenSpec support is enabled)
+    if [ "$OPENSPEC_SUPPORT" = true ] && [ -d "$HOME/.config/openspec" ]; then
+        VOLUME_ARGS+=(-v "$HOME/.config/openspec:/home/coder/.config/openspec:ro")
+        config_info "OpenSpec config directory mounted"
+    fi
+
     # MCP authentication directory (optional)
     if [ -d "$HOME/.mcp-auth" ]; then
         VOLUME_ARGS+=(-v "$HOME/.mcp-auth:/home/coder/.mcp-auth:ro")
@@ -294,6 +301,7 @@ init_config_file() {
 # OpenSpec Support (spec-driven development for AI coding assistants)
 # When enabled, OpenSpec is available inside the container for spec-driven workflows
 # On first run, 'openspec init --tools opencode' is automatically executed in new projects
+# Then 'openspec update' runs on every launch to keep instruction files in sync
 # See: https://github.com/Fission-AI/OpenSpec/
 # setting.openspec_support=false
 
@@ -766,7 +774,8 @@ prompt_openspec_support() {
         echo "OpenSpec adds spec-driven development (SDD) to AI coding assistants."
         echo "It helps you agree on what to build before any code is written."
         echo "When enabled, 'openspec init --tools opencode' runs automatically on first"
-        echo "launch for each project, and the 'openspec' CLI is available in the container."
+        echo "launch for each project, then 'openspec update' keeps instruction files in"
+        echo "sync on every run. The 'openspec' CLI is also available in the container."
         echo ""
 
         read -r -p "Enable OpenSpec support? (y/N): " openspec

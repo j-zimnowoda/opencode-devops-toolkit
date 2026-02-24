@@ -67,17 +67,23 @@ export USER=coder
 export NVM_DIR="/home/coder/.nvm"
 
 # Auto-initialize OpenSpec for the project if enabled and not yet initialized
-# Runs 'openspec init --tools opencode' in /workspace when:
+# Runs 'openspec init --tools opencode --profile core' in /workspace when:
 #   1. OPENSPEC_SUPPORT=true (set by opencode-dockerized config)
 #   2. No openspec/ directory exists in the project yet
 #   3. The openspec CLI is available in the image
-if [ "${OPENSPEC_SUPPORT:-false}" = "true" ] && [ ! -d /workspace/openspec ]; then
+# Then runs 'openspec update' to regenerate instruction files for the current CLI version.
+# The update also runs on already-initialized projects to keep files in sync after upgrades.
+if [ "${OPENSPEC_SUPPORT:-false}" = "true" ]; then
     if command -v openspec >/dev/null 2>&1 || [ -x "$NVM_DIR/default/bin/openspec" ]; then
-        echo "OpenSpec: initializing project with OpenCode tool integration..."
-        # Run as the mapped coder user so files are owned correctly
+        if [ ! -d /workspace/openspec ]; then
+            echo "OpenSpec: initializing project with OpenCode tool integration..."
+            setpriv --reuid="$TARGET_UID" --regid="$TARGET_GID" --init-groups \
+                bash -c "source \$NVM_DIR/nvm.sh && cd /workspace && openspec init --tools opencode --profile core" 2>/dev/null || \
+                echo "OpenSpec: init failed (non-fatal) — you can run 'openspec init --tools opencode --profile core' manually"
+        fi
+        # Update instruction files to match the current CLI version (idempotent)
         setpriv --reuid="$TARGET_UID" --regid="$TARGET_GID" --init-groups \
-            bash -c "source \$NVM_DIR/nvm.sh && cd /workspace && openspec init --tools opencode" 2>/dev/null || \
-            echo "OpenSpec: init failed (non-fatal) — you can run 'openspec init --tools opencode' manually"
+            bash -c "source \$NVM_DIR/nvm.sh && cd /workspace && openspec update" 2>/dev/null || true
     fi
 fi
 
