@@ -52,7 +52,7 @@ check_openspec() {
         return 0
     fi
 
-    if ! docker run --rm "$IMAGE_NAME" bash -c "command -v openspec" >/dev/null 2>&1; then
+    if ! docker run --rm --entrypoint bash "$IMAGE_NAME" -c "command -v openspec" >/dev/null 2>&1; then
         print_warning "OpenSpec support is enabled but 'openspec' was not found in the image"
         print_info "Rebuild the image to install OpenSpec: $0 build"
         return 1
@@ -171,9 +171,12 @@ run_opencode() {
     check_openspec
 
     # Build the full docker run command as an array
+    # CONTAINER_WORKDIR is set by build_standard_volume_args (host path with $HOME stripped)
     local -a docker_cmd=(
         docker run -it
         --name "$container_name"
+        --workdir "$CONTAINER_WORKDIR"
+        -e "OPENCODE_WORKDIR=$CONTAINER_WORKDIR"
         "${DOCKER_COMMON_ARGS[@]}"
         "${VOLUME_ARGS[@]}"
         "${GIT_WORKTREE_ARGS[@]}"
@@ -208,8 +211,8 @@ update_opencode() {
 
     # Show current version before update
     print_info "Current OpenCode version:"
-    docker run --rm "$IMAGE_NAME" npm list -g opencode-ai --depth=0 2>/dev/null || true
-    docker run --rm "$IMAGE_NAME" npm list -g @fission-ai/openspec --depth=0 2>/dev/null || true
+    docker run --rm --entrypoint bash "$IMAGE_NAME" -c "source \$NVM_DIR/nvm.sh && npm list -g opencode-ai --depth=0" 2>/dev/null || true
+    docker run --rm --entrypoint bash "$IMAGE_NAME" -c "source \$NVM_DIR/nvm.sh && npm list -g @fission-ai/openspec --depth=0" 2>/dev/null || true
 
     # Rebuild with cache-busting to force fresh npm install
     print_info "Rebuilding image with latest OpenCode and OpenSpec..."
@@ -217,8 +220,8 @@ update_opencode() {
 
     # Show new version after update
     print_info "Updated OpenCode version:"
-    docker run --rm "$IMAGE_NAME" npm list -g opencode-ai --depth=0 2>/dev/null || true
-    docker run --rm "$IMAGE_NAME" npm list -g @fission-ai/openspec --depth=0 2>/dev/null || true
+    docker run --rm --entrypoint bash "$IMAGE_NAME" -c "source \$NVM_DIR/nvm.sh && npm list -g opencode-ai --depth=0" 2>/dev/null || true
+    docker run --rm --entrypoint bash "$IMAGE_NAME" -c "source \$NVM_DIR/nvm.sh && npm list -g @fission-ai/openspec --depth=0" 2>/dev/null || true
 
     print_success "OpenCode updated successfully"
 }
@@ -327,16 +330,13 @@ EOF
 # Function to show version
 show_version() {
     check_image "$IMAGE_NAME" || exit 1
-    docker run --rm \
-        -e "HOST_UID=$(id -u)" \
-        -e "HOST_GID=$(id -g)" \
-        "$IMAGE_NAME" opencode --version
+    docker run --rm --entrypoint bash "$IMAGE_NAME" -c "source \$NVM_DIR/nvm.sh && opencode --version"
 
     # Show OpenSpec version if support is enabled
     parse_config
     if [ "$OPENSPEC_SUPPORT" = true ]; then
         print_info "OpenSpec version:"
-        docker run --rm "$IMAGE_NAME" bash -c "command -v openspec >/dev/null 2>&1 && openspec --version || echo 'openspec not found in image'"
+        docker run --rm --entrypoint bash "$IMAGE_NAME" -c "command -v openspec >/dev/null 2>&1 && openspec --version || echo 'openspec not found in image'"
     fi
 }
 

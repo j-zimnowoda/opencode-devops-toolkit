@@ -232,7 +232,7 @@ TERM=xterm-256color
 
 | Host Path | Container Path | Mode | Purpose |
 |-----------|---------------|------|---------|
-| `$PROJECT_DIR` | `/workspace` | read-write | Your project files |
+| `$PROJECT_DIR` | `$PROJECT_DIR` (with `$HOME` stripped) | read-write | Your project files |
 | `~/.config/opencode/` | `/home/coder/.config/opencode/` | read-only | OpenCode & oh-my-opencode config, skills, commands, agents |
 | `~/.local/share/opencode/` | `/home/coder/.local/share/opencode/` | read-write | Auth, logs, sessions, storage |
 | `~/.cache/opencode/` | `/home/coder/.cache/opencode/` | read-write | Provider package cache |
@@ -445,7 +445,7 @@ openspec init
 - Spec-driven workflows with `/opsx:*` slash commands
 - Supports 20+ AI coding assistants (including OpenCode)
 - Lightweight spec layer for predictable AI coding
-- Works within the `/workspace` project directory
+- Works within the mounted project directory
 
 For more information, see the [OpenSpec documentation](https://github.com/Fission-AI/OpenSpec/).
 
@@ -601,7 +601,7 @@ opencode-dockerized update
 If OpenCode runs a dangerous command like `rm -rf .`:
 
 - ❌ **Without Docker**: Could delete your entire home directory
-- ✅ **With Docker**: Only affects `/workspace` (your project)
+- ✅ **With Docker**: Only affects the mounted project directory
 
 This significantly reduces risk while maintaining full functionality.
 

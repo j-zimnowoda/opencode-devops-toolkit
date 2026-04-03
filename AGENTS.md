@@ -183,7 +183,7 @@ env.aws_bedrock=AWS_BEARER_TOKEN_BEDROCK
 
 | Host Path | Container Path | Mode | Purpose |
 |-----------|---------------|------|---------|
-| `$PROJECT_DIR` | `/workspace` | rw | Project files |
+| `$PROJECT_DIR` | `$PROJECT_DIR` (with `$HOME` stripped) | rw | Project files |
 | `~/.config/opencode/` | `/home/coder/.config/opencode/` | ro | Config, skills, agents |
 | `~/.local/share/opencode/` | `/home/coder/.local/share/opencode/` | rw | Auth, sessions |
 | `~/.cache/opencode/` | `/home/coder/.cache/opencode/` | rw | Provider cache |

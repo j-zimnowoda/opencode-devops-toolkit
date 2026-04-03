@@ -77,6 +77,21 @@ OPENSPEC_SUPPORT=false           # Boolean flag for OpenSpec (spec-driven develo
 # SHARED HELPERS
 # ============================================
 
+# Compute the container mount path for a project directory.
+# Strips $HOME prefix so the path is portable across machines/users.
+# Example: /home/user/projects/acme/frontend -> /projects/acme/frontend
+#          /opt/work/myproject                -> /opt/work/myproject (unchanged)
+# Usage: container_path=$(compute_container_path "/home/user/projects/myapp")
+compute_container_path() {
+    local host_path="$1"
+
+    if [[ "$host_path" == "$HOME"/* ]]; then
+        echo "${host_path#"$HOME"}"
+    else
+        echo "$host_path"
+    fi
+}
+
 # Ensure all required OpenCode directories exist on host
 ensure_opencode_dirs() {
     mkdir -p "$HOME/.local/share/opencode" 2>/dev/null || true
@@ -203,7 +218,9 @@ build_common_docker_args() {
 }
 
 # Build standard volume mount arguments for OpenCode directories
-# Populates VOLUME_ARGS array
+# Populates VOLUME_ARGS and CONTAINER_WORKDIR
+# The project is mounted at a path derived from the host path (with $HOME stripped)
+# so that OpenCode stores a unique, meaningful directory per project in its session DB.
 # Usage: build_standard_volume_args "/path/to/project" [include_docker_socket]
 build_standard_volume_args() {
     local project_dir="$1"
@@ -211,8 +228,12 @@ build_standard_volume_args() {
 
     VOLUME_ARGS=()
 
-    # Project directory (read-write)
-    VOLUME_ARGS+=(-v "$project_dir:/workspace")
+    # Compute container-side mount path: strip $HOME prefix for portability
+    # e.g. /home/user/projects/acme/frontend -> /projects/acme/frontend
+    CONTAINER_WORKDIR=$(compute_container_path "$project_dir")
+
+    # Project directory (read-write) — mounted at the computed path
+    VOLUME_ARGS+=(-v "$project_dir:$CONTAINER_WORKDIR")
 
     # Git worktree support: mount main .git directory if project is a worktree
     build_git_worktree_args "$project_dir"

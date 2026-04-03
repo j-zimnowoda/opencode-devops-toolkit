@@ -107,8 +107,8 @@ RUN mkdir -p /home/coder/.config/opencode && \
     mkdir -p /home/coder/.m2 && \
     chown -R coder:coder /home/coder
 
-# Set working directory
-WORKDIR /workspace
+# Default working directory (overridden at runtime by --workdir)
+WORKDIR /
 
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
