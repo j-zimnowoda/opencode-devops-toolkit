@@ -31,28 +31,6 @@ ensure_dir() {
     fi
 }
 
-# Function to ensure at least one of the files exists
-# Creates the first file with default content if none exist
-ensure_any_file() {
-    local default_content="$1"
-    shift
-    local files=("$@")
-
-    # Check if any file already exists
-    for file in "${files[@]}"; do
-        if [ -f "$file" ]; then
-            echo -e "${GREEN}✓${NC} Config file exists: $file"
-            return 0
-        fi
-    done
-
-    # None exist, create the first one
-    local first_file="${files[0]}"
-    echo -e "${YELLOW}Creating file: $first_file${NC}"
-    mkdir -p "$(dirname "$first_file")"
-    echo "$default_content" > "$first_file"
-}
-
 echo "Checking OpenCode configuration..."
 echo ""
 
@@ -66,26 +44,19 @@ ensure_dir "$HOME/.cache/opencode"
 ensure_dir "$HOME/.cache/oh-my-opencode"
 ensure_dir "$HOME/.mcp-auth"
 
-# Check/create OpenCode config files
-ensure_any_file '{}' "$HOME/.config/opencode/opencode.json" "$HOME/.config/opencode/opencode.jsonc"
-
-ensure_any_file '{}' "config/oh-my-opencode.json"
-
-SCRIPT_DIR
-
 
 # Copy OpenSpec config if not already present
 ensure_dir "$HOME/.config/opencode"
 fileName="$HOME/.config/opencode/opencode.jsonc"
 if [ ! -f "$HOME/.config/opencode/opencode.jsonc" ]; then
-        cp "$SCRIPT_DIR/config/opencode/opencode.jsonc" "$HOME/.config/opencode/opencode.jsonc"
+        cp "${SCRIPT_DIR}/config/opencode/opencode.jsonc" "$HOME/.config/opencode/opencode.jsonc"
         echo -e "${GREEN}✓${NC} Copied OpenCode config to ~/.config/opencode/opencode.jsonc"
 else
     echo -e "${GREEN}✓${NC} OpenCode config already exists at ~/.config/opencode/opencode.jsonc"
 fi
 
 if [ ! -f "$HOME/.config/opencode/oh-my-opencode.json" ]; then
-        cp "$SCRIPT_DIR/config/oh-my-opencode.json" "$HOME/.config/opencode/oh-my-opencode.json"
+        cp "${SCRIPT_DIR}/config/opencode/oh-my-opencode.json" "$HOME/.config/opencode/oh-my-opencode.json"
         echo -e "${GREEN}✓${NC} Copied OpenCode config to ~/.config/opencode/oh-my-opencode.json"
 else
     echo -e "${GREEN}✓${NC} Oh My OpenCode config already exists at ~/.config/opencode/oh-my-opencode.json"

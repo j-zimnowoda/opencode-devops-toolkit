@@ -3,7 +3,7 @@ FROM node:25-slim AS builder
 
 ARG USER_UID=1000
 ARG USER_GID=1000
-
+ARG TARGETARCH=arm64
 # Parameterize tool versions for easier updates
 ARG NVM_VERSION=v0.40.1
 ARG KUBECTL_VERSION=1.34.2
@@ -79,10 +79,19 @@ RUN tar -zxvf /tmp/helmfile_${HELMFILE_VERSION}_linux_${TARGETARCH}.tar.gz -C /t
 ADD https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-${TARGETARCH}.tar.gz /tmp
 RUN tar -zxvf /tmp/kubeconform-linux-${TARGETARCH}.tar.gz -C /tmp && mv /tmp/kubeconform /usr/local/bin/
 
-# NVM
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
-RUN nvm --version
 
+# # Create a script file sourced by both interactive and non-interactive bash shells
+# ENV BASH_ENV ~/.bash_env
+# RUN touch "${BASH_ENV}"
+# RUN echo '. "${BASH_ENV}"' >> ~/.bashrc
+
+# # NVM
+# RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+# RUN nvm --version
+# # Download and install nvm
+# RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | PROFILE="${BASH_ENV}" bash
+# RUN echo node > .nvmrc
+# RUN nvm install
 # yq
 COPY --from=mikefarah/yq:4 /usr/bin/yq /usr/local/bin/yq
 
@@ -136,12 +145,12 @@ RUN mkdir -p /home/app/.config/opencode && \
     mkdir -p /home/app/.npm && \
     mkdir -p /home/app/.nvm && \
     mkdir -p /home/app/.m2 && \
-    chown -R $USER_UID:$USER_GID /app
+    chown -R $USER_UID:$USER_GID /home/app
 
 # /home/app/.local/share/opencode => here bun installs the opencode plugins (https://opencode.ai/docs/plugins/)
     
 USER node
-WORKDIR /app
+WORKDIR /home/app
 
 # Add nvm, node, sdkman, uv, bun, and ast-grep to PATH
 # Node.js is available via the NVM default symlink created above
@@ -150,19 +159,18 @@ ENV BUN_INSTALL="/home/app/.bun"
 ENV PATH="/usr/local/bin:$BUN_INSTALL/bin:$NVM_DIR/default:/home/app/.local/bin:$PATH"
 ENV OPENSPEC_TELEMETRY=0
 ENV OMO_SEND_ANONYMOUS_TELEMETRY=0
-ENV HOME=/app
+ENV HOME=/home/app/
 
 ENV DISPLAY=:99.0
 
-ENV XDG_CONFIG_HOME=/app/.config
-ENV OPENCODE_CONFIG_DIR=/app/.config/opencode
-ENV XDG_DATA_HOME=/app/.local/share
+ENV XDG_CONFIG_HOME=/home/app/.config
+ENV OPENCODE_CONFIG_DIR=/home/app/.config/opencode
+ENV XDG_DATA_HOME=/home/app/.local/share
 
 
 # RUN opencode mcp list
 
 COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
-
 
 
 

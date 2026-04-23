@@ -241,7 +241,7 @@ build_standard_volume_args() {
     # OpenCode configuration directory (read-only)
     # Includes: opencode.json, AGENTS.md, .env, agent/, command/, plugin/, node_modules/, etc.
     if [ -d "$HOME/.config/opencode" ]; then
-        VOLUME_ARGS+=(-v "$HOME/.config/opencode:/home/app/.config/opencode:ro")
+        VOLUME_ARGS+=(-v "$HOME/.config/opencode:/home/app/.config/opencode:rw")
     else
         config_warning "OpenCode config directory not found at $HOME/.config/opencode"
     fi
@@ -442,6 +442,7 @@ parse_config() {
 # Build docker volume mount arguments from CUSTOM_MOUNTS array
 # Populates DOCKER_MOUNT_ARGS array with -v arguments
 build_mount_args() {
+    set -x
     DOCKER_MOUNT_ARGS=()
 
     for mount in "${CUSTOM_MOUNTS[@]}"; do
