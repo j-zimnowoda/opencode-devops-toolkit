@@ -442,7 +442,6 @@ parse_config() {
 # Build docker volume mount arguments from CUSTOM_MOUNTS array
 # Populates DOCKER_MOUNT_ARGS array with -v arguments
 build_mount_args() {
-    set -x
     DOCKER_MOUNT_ARGS=()
 
     for mount in "${CUSTOM_MOUNTS[@]}"; do
