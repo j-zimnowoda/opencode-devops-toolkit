@@ -152,7 +152,7 @@ INI-style (`key.name=value`), parsed with `while IFS='=' read -r key value` loop
 ```ini
 setting.ssh_agent_support=true
 setting.openspec_support=true
-mount.gitconfig=~/.gitconfig:/home/coder/.gitconfig
+mount.gitconfig=~/.gitconfig:/home/app/.gitconfig
 env.aws_bedrock=AWS_BEARER_TOKEN_BEDROCK
 ```
 
@@ -184,10 +184,10 @@ env.aws_bedrock=AWS_BEARER_TOKEN_BEDROCK
 | Host Path | Container Path | Mode | Purpose |
 |-----------|---------------|------|---------|
 | `$PROJECT_DIR` | `$PROJECT_DIR` (with `$HOME` stripped) | rw | Project files |
-| `~/.config/opencode/` | `/home/coder/.config/opencode/` | ro | Config, skills, agents |
-| `~/.local/share/opencode/` | `/home/coder/.local/share/opencode/` | rw | Auth, sessions |
-| `~/.cache/opencode/` | `/home/coder/.cache/opencode/` | rw | Provider cache |
-| `~/.cache/oh-my-opencode/` | `/home/coder/.cache/oh-my-opencode/` | rw | Plugin cache |
-| `~/.cache/openspec/` | `/home/coder/.cache/openspec/` | rw | OpenSpec cache (when enabled) |
-| `~/.config/openspec/` | `/home/coder/.config/openspec/` | ro | OpenSpec config (when enabled) |
+| `~/.config/opencode/` | `/home/app/.config/opencode/` | ro | Config, skills, agents |
+| `~/.local/share/opencode/` | `/home/app/.local/share/opencode/` | rw | Auth, sessions |
+| `~/.cache/opencode/` | `/home/app/.cache/opencode/` | rw | Provider cache |
+| `~/.cache/oh-my-opencode/` | `/home/app/.cache/oh-my-opencode/` | rw | Plugin cache |
+| `~/.cache/openspec/` | `/home/app/.cache/openspec/` | rw | OpenSpec cache (when enabled) |
+| `~/.config/openspec/` | `/home/app/.config/openspec/` | ro | OpenSpec config (when enabled) |
 | `/var/run/docker.sock` | `/var/run/docker.sock` | rw | Docker socket |

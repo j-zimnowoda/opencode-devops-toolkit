@@ -111,10 +111,10 @@ run_auth() {
 
     # Build volume mount arguments for auth
     local -a auth_volume_args=(
-        -v "$HOME/.local/share/opencode:/home/coder/.local/share/opencode"
-        -v "$HOME/.cache/opencode:/home/coder/.cache/opencode"
+        -v "$HOME/.local/share/opencode:/home/app/.local/share/opencode"
+        -v "$HOME/.cache/opencode:/home/app/.cache/opencode"
         # Config directory read-write for writing opencode.json during auth
-        -v "$HOME/.config/opencode:/home/coder/.config/opencode"
+        -v "$HOME/.config/opencode:/home/app/.config/opencode"
     )
 
     # Run OpenCode auth login in Docker

@@ -233,13 +233,13 @@ TERM=xterm-256color
 | Host Path | Container Path | Mode | Purpose |
 |-----------|---------------|------|---------|
 | `$PROJECT_DIR` | `$PROJECT_DIR` (with `$HOME` stripped) | read-write | Your project files |
-| `~/.config/opencode/` | `/home/coder/.config/opencode/` | read-only | OpenCode & oh-my-opencode config, skills, commands, agents |
-| `~/.local/share/opencode/` | `/home/coder/.local/share/opencode/` | read-write | Auth, logs, sessions, storage |
-| `~/.cache/opencode/` | `/home/coder/.cache/opencode/` | read-write | Provider package cache |
-| `~/.cache/oh-my-opencode/` | `/home/coder/.cache/oh-my-opencode/` | read-write | Oh My OpenCode cache |
-| `~/.gradle/gradle.properties` | `/home/coder/.gradle/gradle.properties` | read-only | Gradle config (optional) |
-| `~/.npmrc` | `/home/coder/.npmrc` | read-only | NPM config (optional) |
-| `~/.mcp-auth/` | `/home/coder/.mcp-auth/` | read-only | MCP authentication (optional) |
+| `~/.config/opencode/` | `/home/app/.config/opencode/` | read-only | OpenCode & oh-my-opencode config, skills, commands, agents |
+| `~/.local/share/opencode/` | `/home/app/.local/share/opencode/` | read-write | Auth, logs, sessions, storage |
+| `~/.cache/opencode/` | `/home/app/.cache/opencode/` | read-write | Provider package cache |
+| `~/.cache/oh-my-opencode/` | `/home/app/.cache/oh-my-opencode/` | read-write | Oh My OpenCode cache |
+| `~/.gradle/gradle.properties` | `/home/app/.gradle/gradle.properties` | read-only | Gradle config (optional) |
+| `~/.npmrc` | `/home/app/.npmrc` | read-only | NPM config (optional) |
+| `~/.mcp-auth/` | `/home/app/.mcp-auth/` | read-only | MCP authentication (optional) |
 
 
 ### Custom Global Configuration (Optional)
@@ -272,7 +272,7 @@ setting.openspec_support=true
 
 # Custom volume mounts (read-only by default)
 # Format: mount.<name>=<host_path>:<container_path>[:rw]
-mount.gitconfig=~/.gitconfig:/home/coder/.gitconfig
+mount.gitconfig=~/.gitconfig:/home/app/.gitconfig
 
 # Environment variables to pass from host to container
 # Format: env.<name>=<VARIABLE_NAME>
@@ -285,7 +285,7 @@ env.context7=CONTEXT7_API_KEY
 **Example 1: Git configuration with SSH agent forwarding (Recommended)**
 ```ini
 setting.ssh_agent_support=true
-mount.gitconfig=~/.gitconfig:/home/coder/.gitconfig
+mount.gitconfig=~/.gitconfig:/home/app/.gitconfig
 ```
 
 **Example 2: API keys and credentials**

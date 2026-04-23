@@ -241,14 +241,14 @@ build_standard_volume_args() {
     # OpenCode configuration directory (read-only)
     # Includes: opencode.json, AGENTS.md, .env, agent/, command/, plugin/, node_modules/, etc.
     if [ -d "$HOME/.config/opencode" ]; then
-        VOLUME_ARGS+=(-v "$HOME/.config/opencode:/home/coder/.config/opencode:ro")
+        VOLUME_ARGS+=(-v "$HOME/.config/opencode:/home/app/.config/opencode:ro")
     else
         config_warning "OpenCode config directory not found at $HOME/.config/opencode"
     fi
 
     # OpenCode data directory (read-write for auth, logs, sessions, storage)
     if [ -d "$HOME/.local/share/opencode" ]; then
-        VOLUME_ARGS+=(-v "$HOME/.local/share/opencode:/home/coder/.local/share/opencode")
+        VOLUME_ARGS+=(-v "$HOME/.local/share/opencode:/home/app/.local/share/opencode")
     else
         config_warning "OpenCode data directory not found at $HOME/.local/share/opencode"
         config_info "You'll need to run 'opencode auth login' inside the container"
@@ -257,39 +257,39 @@ build_standard_volume_args() {
     # OpenCode provider package cache (improves startup time and prevents API errors)
     # See: https://opencode.ai/docs/troubleshooting/#ai_apicallerror-and-provider-package-issues
     if [ -d "$HOME/.cache/opencode" ]; then
-        VOLUME_ARGS+=(-v "$HOME/.cache/opencode:/home/coder/.cache/opencode")
+        VOLUME_ARGS+=(-v "$HOME/.cache/opencode:/home/app/.cache/opencode")
     fi
 
     # Oh My OpenCode cache directory
     if [ -d "$HOME/.cache/oh-my-opencode" ]; then
-        VOLUME_ARGS+=(-v "$HOME/.cache/oh-my-opencode:/home/coder/.cache/oh-my-opencode")
+        VOLUME_ARGS+=(-v "$HOME/.cache/oh-my-opencode:/home/app/.cache/oh-my-opencode")
     fi
 
     # OpenSpec cache directory (only when OpenSpec support is enabled)
     if [ "$OPENSPEC_SUPPORT" = true ] && [ -d "$HOME/.cache/openspec" ]; then
-        VOLUME_ARGS+=(-v "$HOME/.cache/openspec:/home/coder/.cache/openspec")
+        VOLUME_ARGS+=(-v "$HOME/.cache/openspec:/home/app/.cache/openspec")
         config_info "OpenSpec support enabled — cache directory mounted"
     fi
 
     # OpenSpec config directory (only when OpenSpec support is enabled)
     if [ "$OPENSPEC_SUPPORT" = true ] && [ -d "$HOME/.config/openspec" ]; then
-        VOLUME_ARGS+=(-v "$HOME/.config/openspec:/home/coder/.config/openspec:ro")
+        VOLUME_ARGS+=(-v "$HOME/.config/openspec:/home/app/.config/openspec:ro")
         config_info "OpenSpec config directory mounted"
     fi
 
     # MCP authentication directory (optional)
     if [ -d "$HOME/.mcp-auth" ]; then
-        VOLUME_ARGS+=(-v "$HOME/.mcp-auth:/home/coder/.mcp-auth:ro")
+        VOLUME_ARGS+=(-v "$HOME/.mcp-auth:/home/app/.mcp-auth:ro")
     fi
 
     # Gradle properties (optional)
     if [ -f "$HOME/.gradle/gradle.properties" ]; then
-        VOLUME_ARGS+=(-v "$HOME/.gradle/gradle.properties:/home/coder/.gradle/gradle.properties:ro")
+        VOLUME_ARGS+=(-v "$HOME/.gradle/gradle.properties:/home/app/.gradle/gradle.properties:ro")
     fi
 
     # NPM configuration (optional)
     if [ -f "$HOME/.npmrc" ]; then
-        VOLUME_ARGS+=(-v "$HOME/.npmrc:/home/coder/.npmrc:ro")
+        VOLUME_ARGS+=(-v "$HOME/.npmrc:/home/app/.npmrc:ro")
     fi
 
     # Docker socket (optional, for Docker-in-Docker operations)
@@ -329,9 +329,9 @@ init_config_file() {
 # Custom volume mounts (read-only by default)
 # Format: mount.<name>=<host_path>:<container_path>[:rw]
 # Examples:
-#   mount.gitconfig=~/.gitconfig:/home/coder/.gitconfig
-#   mount.ssh=~/.ssh:/home/coder/.ssh:rw
-#   mount.gitignore_global=~/.config/git/gitignore_global:/home/coder/.config/git/gitignore_global
+#   mount.gitconfig=~/.gitconfig:/home/app/.gitconfig
+#   mount.ssh=~/.ssh:/home/app/.ssh:rw
+#   mount.gitignore_global=~/.config/git/gitignore_global:/home/app/.config/git/gitignore_global
 
 # Environment variables to pass from host to container
 # Format: env.<name>=<variable_name>
@@ -603,17 +603,17 @@ remove_env_var() {
 # suggest_container_path <host_path> [default]
 suggest_container_path() {
     local host_path="$1"
-    local default="${2:-/home/coder/$(basename "$host_path")}"
+    local default="${2:-/home/app/$(basename "$host_path")}"
 
     # For common paths, suggest sensible defaults
     if [[ "$host_path" == *"/.gitconfig" ]]; then
-        echo "/home/coder/.gitconfig"
+        echo "/home/app/.gitconfig"
     elif [[ "$host_path" == *"/.ssh" ]]; then
-        echo "/home/coder/.ssh"
+        echo "/home/app/.ssh"
     elif [[ "$host_path" == *"/.config/git"* ]]; then
-        echo "/home/coder/.config/git/$(basename "$host_path")"
+        echo "/home/app/.config/git/$(basename "$host_path")"
     elif [[ "$host_path" == *"/.gradle"* ]]; then
-        echo "/home/coder/.gradle/$(basename "$host_path")"
+        echo "/home/app/.gradle/$(basename "$host_path")"
     else
         echo "$default"
     fi

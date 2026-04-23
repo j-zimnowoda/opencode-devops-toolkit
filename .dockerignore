@@ -24,3 +24,4 @@ config-lib.sh
 
 # Docker
 .dockerignore
+.history

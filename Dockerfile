@@ -1,10 +1,20 @@
-# Use Debian slim as lightweight Linux base
-# Note: We only install Docker CLI to use host's Docker daemon via mounted socket
-FROM debian:bookworm-slim
+# Build stage: install dependencies
+FROM node:25-slim AS builder
+
+ARG USER_UID=1000
+ARG USER_GID=1000
 
 # Parameterize tool versions for easier updates
 ARG NVM_VERSION=v0.40.1
-ARG JAVA_VERSION=21.0.5-tem
+ARG KUBECTL_VERSION=1.34.2
+# https://github.com/helm/helm/tags
+ARG HELM_VERSION=3.19.2
+# https://github.com/databus23/helm-diff/releases
+ARG HELMFILE_VERSION=1.2.2
+# https://github.com/cloudnative-pg/cloudnative-pg/releases
+ARG CNPG_VERSION=1.27.1
+ARG HELM_FILE_NAME=helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz
+ARG KUBECONFORM_VERSION=0.7.0
 
 # Install base dependencies and useful CLI tools for coding agents
 RUN apt-get update && apt-get install -y \
@@ -30,8 +40,7 @@ RUN apt-get update && apt-get install -y \
     lsof \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Docker CLI only (uses host Docker daemon via mounted socket)
-# We don't need docker-ce (daemon) or containerd.io since we use the host's Docker
+# Docker CLI
 RUN install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
     chmod a+r /etc/apt/keyrings/docker.asc && \
@@ -42,80 +51,119 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
     apt-get install -y docker-ce-cli docker-buildx-plugin docker-compose-plugin && \
     rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-# Note: Docker socket group membership is handled dynamically in entrypoint.sh
-# based on the host's actual Docker socket GID
-RUN useradd -m -s /bin/bash -u 1000 coder && \
-    echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Install SDKMAN and Java as coder user
-USER coder
-WORKDIR /home/coder
-RUN curl -s "https://get.sdkman.io" | bash && \
-    bash -c "source /home/coder/.sdkman/bin/sdkman-init.sh && \
-    sdk install java ${JAVA_VERSION} && \
-    sdk default java ${JAVA_VERSION}"
+# kubectl
+RUN curl -LO "https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/$TARGETARCH/kubectl" && \
+  curl -LO "https://dl.k8s.io/release/v$KUBECTL_VERSION/bin/linux/$TARGETARCH/kubectl.sha256" && \
+  echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check && \
+  chmod +x kubectl && \
+  mv kubectl /usr/local/bin/
 
-# Install NVM and Node.js LTS as coder user
-ENV NVM_DIR="/home/coder/.nvm"
-RUN curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | bash && \
-    bash -c "source $NVM_DIR/nvm.sh && \
-    nvm install --lts && \
-    nvm alias default node && \
-    nvm use default && \
-    ln -sf \$(dirname \$(which node)) $NVM_DIR/default"
+# cnpg kubectl plugin
+RUN CNPG_ARCH=$(if [ "${TARGETARCH}" = "amd64" ]; then echo "x86_64"; else echo "${TARGETARCH}"; fi) && \
+  curl -LO "https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v${CNPG_VERSION}/kubectl-cnpg_${CNPG_VERSION}_linux_${CNPG_ARCH}.tar.gz" && \
+  tar -zxvf kubectl-cnpg_${CNPG_VERSION}_linux_${CNPG_ARCH}.tar.gz && \
+  chmod +x kubectl-cnpg && \
+  rm kubectl-cnpg_${CNPG_VERSION}_linux_${CNPG_ARCH}.tar.gz && \
+  mv kubectl-cnpg /usr/local/bin/
 
-# Install uv (Python package manager) as coder user
-# See: https://docs.astral.sh/uv/getting-started/installation/
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+# helm
+ADD https://get.helm.sh/${HELM_FILE_NAME} /tmp
+RUN tar -zxvf /tmp/${HELM_FILE_NAME} -C /tmp && mv /tmp/linux-${TARGETARCH}/helm /usr/local/bin/ 
 
-# Install ast-grep for AST-aware code search/replace (used by oh-my-opencode)
-# The npm package @ast-grep/cli provides the 'ast-grep' and 'sg' binaries
-# See: https://ast-grep.github.io/
-RUN bash -c "source $NVM_DIR/nvm.sh && npm install -g @ast-grep/cli"
+# helmfile
+ADD https://github.com/helmfile/helmfile/releases/download/v${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION}_linux_${TARGETARCH}.tar.gz /tmp
+RUN tar -zxvf /tmp/helmfile_${HELMFILE_VERSION}_linux_${TARGETARCH}.tar.gz -C /tmp && mv /tmp/helmfile /usr/local/bin/
 
-# Install Bun (fast JavaScript runtime and package manager)
-# Required by oh-my-opencode for optimal performance
-# See: https://bun.sh/
-RUN curl -fsSL https://bun.sh/install | bash
-ENV BUN_INSTALL="/home/coder/.bun"
+# kubeconform
+ADD https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-${TARGETARCH}.tar.gz /tmp
+RUN tar -zxvf /tmp/kubeconform-linux-${TARGETARCH}.tar.gz -C /tmp && mv /tmp/kubeconform /usr/local/bin/
+
+# NVM
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+RUN nvm --version
+
+# yq
+COPY --from=mikefarah/yq:4 /usr/bin/yq /usr/local/bin/yq
+
+# OPENCODE
+RUN npm install -g opencode-ai@1.14.21
+
+# # OPENCODE PLUGINS
+# RUN npm install -g oh-my-openagent@3.17.4
+
+# MCPs
+RUN npm install -g @upstash/context7-mcp@2.1.8
+RUN npm install -g @modelcontextprotocol/server-sequential-thinking@2025.12.18
+
+# TOOLS
+RUN npm install -g typescript-language-server@5.1.3
+RUN npm install -g typescript@6.0.3
+RUN npm install -g bun@1.3.10
+RUN npm install -g @ast-grep/cli@0.42.1
+
+
+# OPENSPEC
+RUN npm install -g @fission-ai/openspec@v1.3.1
+
+# VERIFICATION
+RUN opencode models --refresh
+RUN bun --version
+
+
+# Runtime stage: minimal image
+FROM node:25-slim
+
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+
+COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=builder /usr/local/bin /usr/local/bin
+# COPY --from=builder /usr/bin /usr/bin
+
+RUN usermod -u $USER_UID -o node && \
+    groupmod -g $USER_GID node || true
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /home/app/.config/opencode && \
+    mkdir -p /home/app/.config/openspec && \
+    mkdir -p /home/app/.local/share/opencode && \
+    mkdir -p /home/app/.cache/opencode && \
+    mkdir -p /home/app/.cache/oh-my-opencode && \
+    mkdir -p /home/app/.cache/openspec && \
+    mkdir -p /home/app/.gradle && \
+    mkdir -p /home/app/.npm && \
+    mkdir -p /home/app/.nvm && \
+    mkdir -p /home/app/.m2 && \
+    chown -R $USER_UID:$USER_GID /app
+
+# /home/app/.local/share/opencode => here bun installs the opencode plugins (https://opencode.ai/docs/plugins/)
+    
+USER node
+WORKDIR /app
 
 # Add nvm, node, sdkman, uv, bun, and ast-grep to PATH
 # Node.js is available via the NVM default symlink created above
-ENV PATH="$BUN_INSTALL/bin:$NVM_DIR/default:/home/coder/.local/bin:/home/coder/.sdkman/candidates/java/current/bin:$PATH"
-ENV JAVA_HOME="/home/coder/.sdkman/candidates/java/current"
+ENV NVM_DIR="/home/app/.nvm"
+ENV BUN_INSTALL="/home/app/.bun"
+ENV PATH="/usr/local/bin:$BUN_INSTALL/bin:$NVM_DIR/default:/home/app/.local/bin:$PATH"
+ENV OPENSPEC_TELEMETRY=0
+ENV OMO_SEND_ANONYMOUS_TELEMETRY=0
+ENV HOME=/app
 
-# Install OpenCode and OpenSpec globally
-# OpenSpec: Spec-driven development (SDD) for AI coding assistants
-# See: https://github.com/Fission-AI/OpenSpec/
-# ARG OPENCODE_BUILD_TIME is only passed during 'update' to bust cache
-ARG OPENCODE_BUILD_TIME=0
-RUN bash -c "source $NVM_DIR/nvm.sh && npm install -g opencode-ai@latest @fission-ai/openspec@latest"
+ENV DISPLAY=:99.0
 
-# Switch back to root for entrypoint setup
-USER root
+ENV XDG_CONFIG_HOME=/app/.config
+ENV OPENCODE_CONFIG_DIR=/app/.config/opencode
+ENV XDG_DATA_HOME=/app/.local/share
 
-# Create necessary directories with proper permissions
-RUN mkdir -p /home/coder/.config/opencode && \
-    mkdir -p /home/coder/.config/openspec && \
-    mkdir -p /home/coder/.local/share/opencode && \
-    mkdir -p /home/coder/.cache/opencode && \
-    mkdir -p /home/coder/.cache/oh-my-opencode && \
-    mkdir -p /home/coder/.cache/openspec && \
-    mkdir -p /home/coder/.gradle && \
-    mkdir -p /home/coder/.npm && \
-    mkdir -p /home/coder/.m2 && \
-    chown -R coder:coder /home/coder
 
-# Default working directory (overridden at runtime by --workdir)
-WORKDIR /
+# RUN opencode mcp list
 
-# Copy entrypoint script
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Set the entrypoint (runs as root, then switches to coder)
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-# Default command is to run opencode
-CMD ["opencode"]
+
+
+ENTRYPOINT ["entrypoint.sh"]

@@ -69,6 +69,28 @@ ensure_dir "$HOME/.mcp-auth"
 # Check/create OpenCode config files
 ensure_any_file '{}' "$HOME/.config/opencode/opencode.json" "$HOME/.config/opencode/opencode.jsonc"
 
+ensure_any_file '{}' "config/oh-my-opencode.json"
+
+SCRIPT_DIR
+
+
+# Copy OpenSpec config if not already present
+ensure_dir "$HOME/.config/opencode"
+fileName="$HOME/.config/opencode/opencode.jsonc"
+if [ ! -f "$HOME/.config/opencode/opencode.jsonc" ]; then
+        cp "$SCRIPT_DIR/config/opencode/opencode.jsonc" "$HOME/.config/opencode/opencode.jsonc"
+        echo -e "${GREEN}✓${NC} Copied OpenCode config to ~/.config/opencode/opencode.jsonc"
+else
+    echo -e "${GREEN}✓${NC} OpenCode config already exists at ~/.config/opencode/opencode.jsonc"
+fi
+
+if [ ! -f "$HOME/.config/opencode/oh-my-opencode.json" ]; then
+        cp "$SCRIPT_DIR/config/oh-my-opencode.json" "$HOME/.config/opencode/oh-my-opencode.json"
+        echo -e "${GREEN}✓${NC} Copied OpenCode config to ~/.config/opencode/oh-my-opencode.json"
+else
+    echo -e "${GREEN}✓${NC} Oh My OpenCode config already exists at ~/.config/opencode/oh-my-opencode.json"
+fi
+
 # Copy OpenSpec config if not already present
 ensure_dir "$HOME/.config/openspec"
 if [ ! -f "$HOME/.config/openspec/config.json" ]; then

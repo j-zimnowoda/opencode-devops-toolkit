@@ -42,10 +42,10 @@
 # Mounts are read-only by default. Append :rw for read-write access.
 #
 # Common examples:
-#   mount.gitconfig=~/.gitconfig:/home/coder/.gitconfig
-#   mount.gradle=~/.gradle/gradle.properties:/home/coder/.gradle/gradle.properties
+#   mount.gitconfig=~/.gitconfig:/home/app/.gitconfig
+#   mount.gradle=~/.gradle/gradle.properties:/home/app/.gradle/gradle.properties
 #
-# mount.gitconfig=~/.gitconfig:/home/coder/.gitconfig
+# mount.gitconfig=~/.gitconfig:/home/app/.gitconfig
 
 # ============================================
 # Environment Variables
