@@ -7,7 +7,7 @@ set -e
 WORKDIR="${OPENCODE_WORKDIR:-/}"
 
 # Switch to coder user and execute the command
-# Set HOME explicitly to ensure it points to /home/coder
+# Set HOME explicitly to ensure it points to /home/node
 export HOME=/home/app
 export USER=node
 
