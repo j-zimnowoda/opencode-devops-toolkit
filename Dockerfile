@@ -98,9 +98,6 @@ COPY --from=mikefarah/yq:4 /usr/bin/yq /usr/local/bin/yq
 # OPENCODE
 RUN npm install -g opencode-ai@1.14.21
 
-# # OPENCODE PLUGINS
-# RUN npm install -g oh-my-openagent@3.17.4
-
 # MCPs
 RUN npm install -g @upstash/context7-mcp@2.1.8
 RUN npm install -g @modelcontextprotocol/server-sequential-thinking@2025.12.18
@@ -111,14 +108,12 @@ RUN npm install -g typescript@6.0.3
 RUN npm install -g bun@1.3.10
 RUN npm install -g @ast-grep/cli@0.42.1
 
-
 # OPENSPEC
 RUN npm install -g @fission-ai/openspec@v1.3.1
 
 # VERIFICATION
 RUN opencode models --refresh
 RUN bun --version
-
 
 # Runtime stage: minimal image
 FROM node:25-slim

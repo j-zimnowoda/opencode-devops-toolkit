@@ -150,12 +150,13 @@ run_opencode() {
     print_info "Project directory: $project_dir"
     print_info "Container name: $container_name"
 
+    INCLUDE_DOCKER_SOCKET=false
     # Parse custom config and build docker arguments
     parse_config
     build_mount_args
     build_env_args
     build_common_docker_args
-    build_standard_volume_args "$project_dir" true
+    build_standard_volume_args "$project_dir" "$INCLUDE_DOCKER_SOCKET"
 
     # Verify OpenSpec is available in the image if enabled
     check_openspec

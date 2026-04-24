@@ -57,7 +57,8 @@ build_env_args
 build_common_docker_args
 
 # Build standard volume mount arguments (with Docker socket)
-build_standard_volume_args "$PROJECT_DIR" true
+INCLUDE_DOCKER_SOCKET=false
+build_standard_volume_args "$PROJECT_DIR" "$INCLUDE_DOCKER_SOCKET"
 
 # Generate unique container name
 local_dir_name=$(sanitize_container_name "$(basename "$PROJECT_DIR")")
