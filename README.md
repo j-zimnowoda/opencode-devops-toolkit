@@ -21,7 +21,7 @@ Run OpenCode in a secure, isolated Docker container with controlled access to yo
 ## 🔒 Security Features
 
 - **Isolated Environment** - OpenCode only has access to the mounted project directory
-- **Read-only Configuration** - All configuration files are mounted read-only (except session storage)
+- **Read-only Configuration** - All configuration files are mounted read-only (except session storage and ~/.config/opencode)
 - **Session Persistence** - Logs and project session data persist across container restarts
 - **Non-root User** - Runs as non-root user with UID/GID matching your host user
 - **Limited Blast Radius** - Commands like `rm -rf .` only affect the project directory, not your entire system
@@ -29,10 +29,6 @@ Run OpenCode in a secure, isolated Docker container with controlled access to yo
 ## 📋 Prerequisites
 
 1. **Docker** installed and running
-2. **Optional configuration files** (if you have them):
-   - `~/.gradle/gradle.properties` - Gradle configuration
-   - `~/.npmrc` - NPM configuration
-
 **No local OpenCode installation required!** Authentication and all OpenCode operations run through Docker.
 
 ## 🚀 Quick Start
@@ -47,10 +43,15 @@ cd /path/to/opencode-dockerized
 ./setup.sh
 
 # 3. Build the Docker image
-opencode-dockerized build
+For best experience build the container image that matches user and group id from your host 
+```
+docker build -t opencode-dockerized:latest --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) .
+```
 
 # 4. Authenticate with your LLM provider (no local OpenCode needed!)
+```
 opencode-dockerized auth
+```
 
 # 5. Run OpenCode in your project (from any directory!)
 opencode-dockerized run
@@ -85,9 +86,6 @@ opencode-dockerized run ~/projects/my-app
 
 # Check version
 opencode-dockerized version
-
-# Update OpenCode
-opencode-dockerized update
 ```
 
 ### Global Installation
@@ -165,7 +163,6 @@ After installation, you'll get:
 opencode-dockerized build          # Build Docker image
 opencode-dockerized auth           # Authenticate with LLM provider
 opencode-dockerized run [DIR]      # Run OpenCode (default: current dir)
-opencode-dockerized update         # Update OpenCode version
 opencode-dockerized version        # Show version
 opencode-dockerized config show    # Show parsed configuration
 opencode-dockerized config edit    # Edit config in $EDITOR
@@ -301,75 +298,6 @@ env.context7=CONTEXT7_API_KEY
 - Environment variables must be set in your host environment to be passed
 - Re-run `./setup.sh` anytime to update your custom configuration
 
-## 🌍 Portability & Sharing
-
-**This setup is fully portable!** It uses `$HOME` instead of hardcoded paths and works across different users and systems.
-
-### How to Share
-
-**Method 1: Git Repository (Recommended)**
-
-```bash
-git init
-git add .
-git commit -m "Initial OpenCode Docker setup"
-git remote add origin <your-repo-url>
-git push -u origin main
-```
-
-Users can then:
-```bash
-git clone <your-repo-url>
-cd opencode-dockerized
-./setup.sh              # Sets up config + installs globally
-opencode-dockerized build
-opencode-dockerized run
-```
-
-**Method 2: Archive Distribution**
-
-```bash
-tar -czf opencode-docker.tar.gz opencode-dockerized/
-```
-
-Users extract and run:
-```bash
-tar -xzf opencode-docker.tar.gz
-cd opencode-dockerized
-./setup.sh              # Sets up config + installs globally
-opencode-dockerized build
-```
-
-**Method 3: Docker Hub**
-
-```bash
-docker build -t yourusername/opencode-dockerized:latest .
-docker push yourusername/opencode-dockerized:latest
-```
-
-Update scripts to use `yourusername/opencode-dockerized:latest`
-
-### Platform Compatibility
-
-- **Linux**: Works out of the box
-- **macOS**: Works with Docker Desktop
-- **Windows (WSL2)**: Works in WSL2 terminal
-- **Windows (Native)**: Use WSL2 instead
-
-### What to Share
-
-✅ Safe to share:
-- Dockerfile
-- Shell scripts
-- Documentation
-- .gitignore
-
-❌ Never share:
-- `.env` file with secrets
-- Personal `auth.json`
-- Personal `opencode.json` (may contain API keys)
-- Personal `.gradle/gradle.properties`
-- Personal `.npmrc`
 
 ## 🔍 Advanced Usage
 
@@ -449,57 +377,6 @@ openspec init
 
 For more information, see the [OpenSpec documentation](https://github.com/Fission-AI/OpenSpec/).
 
-### Python Development with uv
-
-The container includes [uv](https://docs.astral.sh/uv/), a fast Python package manager and project manager. Use it for:
-
-```bash
-# Inside the container or via OpenCode commands
-uv init my-project              # Create a new Python project
-uv add requests                 # Add dependencies
-uv run python script.py         # Run scripts in isolated environment
-uv pip install package          # Install packages (pip-compatible)
-uv venv                         # Create virtual environments
-uv python install 3.12          # Install specific Python versions
-```
-
-**Benefits:**
-- ✅ 10-100x faster than pip
-- ✅ Deterministic dependency resolution
-- ✅ Built-in virtual environment management
-- ✅ Works seamlessly with existing pip workflows
-
-For more information, see the [uv documentation](https://docs.astral.sh/uv/).
-
-### Adding Additional Tools
-
-Edit `Dockerfile`:
-
-```dockerfile
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    bash \
-    ca-certificates \
-    python3 \
-    python3-pip \
-    jq \
-    && rm -rf /var/lib/apt/lists/*
-```
-
-### Using Different Base Images
-
-```dockerfile
-# For Alpine (smaller size)
-FROM node:20-alpine
-
-# For specific Node version
-FROM node:22-slim
-
-# For Ubuntu-based
-FROM ubuntu:22.04
-# (then install Node.js manually)
-```
 
 ## 🐛 Troubleshooting
 
@@ -549,9 +426,6 @@ opencode-dockerized build
 ```bash
 # Force rebuild without cache
 docker build --no-cache -t opencode-dockerized:latest .
-
-# Or use update command
-opencode-dockerized update
 ```
 
 ## 📁 File Reference

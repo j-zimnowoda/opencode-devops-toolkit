@@ -59,16 +59,6 @@ check_openspec() {
     fi
     return 0
 }
-
-# Function to build the Docker image
-build_image() {
-    print_info "Building OpenCode Docker image..."
-    # Regular build uses Docker layer cache normally.
-    # Only the 'update' command passes OPENCODE_BUILD_TIME to bust the npm cache.
-    docker build -t "$IMAGE_NAME" "$SCRIPT_DIR"
-    print_success "Docker image built successfully"
-}
-
 # Function to check required configuration files
 check_config() {
     local missing_files=()
@@ -354,9 +344,6 @@ main() {
             ;;
         auth)
             run_auth
-            ;;
-        build)
-            build_image
             ;;
         update)
             update_opencode

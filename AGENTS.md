@@ -5,7 +5,7 @@
 Shell script-based Docker wrapper for running [OpenCode](https://opencode.ai) in secure, isolated containers. Sandboxes OpenCode so its blast radius is limited to the mounted project directory. Supports [Oh My OpenCode](https://github.com/code-yeongyu/oh-my-opencode) plugin and [OpenSpec](https://github.com/Fission-AI/OpenSpec/) spec-driven development. All source is Bash shell scripts and a Dockerfile — no compiled code, no JS/Python source, no package manager files.
 
 **Key files:**
-- `opencode-dockerized.sh` — Main wrapper (build, run, auth, update, config, clean commands)
+- `opencode-dockerized.sh` — Main wrapper (build, run, auth, config, clean commands)
 - `config-lib.sh` — Shared library sourced by other scripts (config parsing, mount/env arg building, shared volume logic, interactive prompts). **Not executable directly.**
 - `Dockerfile` — Container image (Debian bookworm-slim + Node.js/NVM + Java 21/SDKMAN + Bun + OpenCode + OpenSpec)
 - `entrypoint.sh` — Container entrypoint (UID/GID mapping, Docker socket permissions)
@@ -22,7 +22,6 @@ Shell script-based Docker wrapper for running [OpenCode](https://opencode.ai) in
 ./opencode-dockerized.sh build          # Build Docker image (uses layer cache)
 ./opencode-dockerized.sh run [DIR]      # Run OpenCode (default: current dir)
 ./opencode-dockerized.sh auth           # Authenticate OpenCode
-./opencode-dockerized.sh update         # Update OpenCode (cache-busting rebuild)
 ./opencode-dockerized.sh version        # Show OpenCode version
 ./opencode-dockerized.sh config show    # Show parsed configuration
 ./opencode-dockerized.sh config edit    # Edit config in $EDITOR
@@ -70,7 +69,7 @@ source "$SCRIPT_DIR/config-lib.sh"
 | Type              | Convention         | Examples                                      |
 |-------------------|--------------------|-----------------------------------------------|
 | Shell scripts     | kebab-case.sh      | `opencode-dockerized.sh`, `run-simple.sh`     |
-| Functions         | snake_case         | `check_docker()`, `build_image()`             |
+| Functions         | snake_case         | `check_docker()``             |
 | Constants         | UPPER_SNAKE        | `IMAGE_NAME`, `SCRIPT_DIR`, `CONFIG_DIR`      |
 | Local variables   | lower_snake        | `project_dir`, `container_name`               |
 | Global arrays     | UPPER_SNAKE        | `CUSTOM_MOUNTS=()`, `DOCKER_MOUNT_ARGS=()`   |
@@ -136,7 +135,6 @@ main() {
     shift || true
     case "$command" in
         run)    check_config; run_opencode "$@" ;;
-        build)  build_image ;;
         config) show_config "$@" ;;
         clean)  clean_image ;;
         help|--help|-h) show_help ;;
@@ -165,7 +163,6 @@ env.aws_bedrock=AWS_BEARER_TOKEN_BEDROCK
 - System packages as root; dev tools (NVM, SDKMAN, uv, Bun) as non-root `coder` user
 - Non-root user: `useradd -m -s /bin/bash -u 1000 coder`
 - Create NVM default symlink for PATH: `ln -sf $(dirname $(which node)) $NVM_DIR/default`
-- Cache-busting `ARG OPENCODE_BUILD_TIME` only used by `update`, not regular `build`
 - Use official installers from trusted sources
 
 ### Security Rules
