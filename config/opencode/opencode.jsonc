@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "context7": {
+      "type": "local",
+      "command": ["npx", "-y", "@upstash/context7-mcp"],
+      "enabled": true
+    },
+    "sequential-thinking": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "enabled": true
+    }
+  },
+  "watcher": {
+    "ignore": ["node_modules/**", "dist/**", ".git/**", ".history/**"]
+  },
+
+  // "plugin": ["oh-my-opencode@3.5.3", "superpowers@git+https://github.com/obra/superpowers.git"],
+  "plugin": ["oh-my-opencode@3.5.3"],
+  "share": "disabled"
+}
