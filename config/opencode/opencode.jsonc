@@ -16,6 +16,7 @@
     "ignore": ["node_modules/**", "dist/**", ".git/**", ".history/**"]
   },
 
+  "lsp": {},
   // "plugin": ["oh-my-opencode@3.5.3", "superpowers@git+https://github.com/obra/superpowers.git"],
   "plugin": ["oh-my-opencode@3.5.3"],
   "share": "disabled"
