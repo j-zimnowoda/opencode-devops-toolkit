@@ -104,8 +104,7 @@ RUN npm install -g typescript-language-server@5.1.3
 RUN npm install -g typescript@6.0.3
 RUN npm install -g bun@1.3.10
 RUN npm install -g @ast-grep/cli@0.42.1
-RUN python3 -m pip install --no-cache-dir --break-system-packages graphifyy yq
-
+RUN python3 -m pip install --no-cache-dir --break-system-packages graphifyy yq markitdown[all]
 
 # OPENSPEC
 RUN npm install -g @fission-ai/openspec@v1.3.1
