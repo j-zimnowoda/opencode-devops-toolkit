@@ -13,6 +13,7 @@ _opencode_dockerized() {
         'update:Update OpenCode to the latest version'
         'version:Show OpenCode version in the container'
         'config:Show, edit, or print config file path'
+        'config-opencode:Update OpenCode config files from repository templates'
         'clean:Remove the Docker image'
         'help:Show help message'
     )
@@ -38,6 +39,13 @@ _opencode_dockerized() {
                         'path:Print config file path'
                     )
                     _describe -t config_cmds 'config subcommand' config_cmds
+                    ;;
+                config-opencode)
+                    local -a opencode_config_cmds
+                    opencode_config_cmds=(
+                        'update:Refresh OpenCode config files from repository templates'
+                    )
+                    _describe -t opencode_config_cmds 'config-opencode subcommand' opencode_config_cmds
                     ;;
             esac
             ;;

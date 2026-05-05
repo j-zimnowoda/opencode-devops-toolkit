@@ -34,6 +34,12 @@
 #
 # setting.openspec_support=true
 
+# Mount ~/.agents/skills into the container (read-only, if host directory exists)
+# setting.agents_skills_support=true
+
+# Mount ~/.claude/skills into the container (read-only, if host directory exists)
+# setting.claude_skills_support=true
+
 # ============================================
 # Custom Volume Mounts
 # ============================================

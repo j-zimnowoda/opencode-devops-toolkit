@@ -8,7 +8,7 @@ _opencode_dockerized() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="run auth build update version config clean help --help -h"
+    opts="run auth build update version config config-opencode clean help --help -h"
 
     case "${prev}" in
         run)
@@ -19,6 +19,11 @@ _opencode_dockerized() {
         config)
             # Complete config subcommands
             mapfile -t COMPREPLY < <(compgen -W "show edit path" -- "${cur}")
+            return 0
+            ;;
+        config-opencode)
+            # Complete config-opencode subcommands
+            mapfile -t COMPREPLY < <(compgen -W "update" -- "${cur}")
             return 0
             ;;
         *)

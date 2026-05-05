@@ -228,6 +228,45 @@ clean_image() {
     fi
 }
 
+# Function to update OpenCode configuration files on the host
+update_opencode_config() {
+    local src_dir="$SCRIPT_DIR/config/opencode"
+    local dest_dir="$HOME/.config/opencode"
+
+    if [ ! -d "$src_dir" ]; then
+        print_error "Source OpenCode config directory not found: $src_dir"
+        exit 1
+    fi
+
+    mkdir -p "$dest_dir"
+
+    # Core OpenCode config files
+    if [ -f "$src_dir/opencode.jsonc" ]; then
+        cp "$src_dir/opencode.jsonc" "$dest_dir/opencode.jsonc"
+        print_success "Updated ~/.config/opencode/opencode.jsonc"
+    fi
+
+    if [ -f "$src_dir/oh-my-opencode.json" ]; then
+        cp "$src_dir/oh-my-opencode.json" "$dest_dir/oh-my-opencode.json"
+        print_success "Updated ~/.config/opencode/oh-my-opencode.json"
+    fi
+
+    # Optional command and plugin directories
+    if [ -d "$src_dir/commands" ]; then
+        mkdir -p "$dest_dir/commands"
+        cp -R "$src_dir/commands/." "$dest_dir/commands/"
+        print_success "Updated ~/.config/opencode/commands/"
+    fi
+
+    if [ -d "$src_dir/plugins" ]; then
+        mkdir -p "$dest_dir/plugins"
+        cp -R "$src_dir/plugins/." "$dest_dir/plugins/"
+        print_success "Updated ~/.config/opencode/plugins/"
+    fi
+
+    print_info "OpenCode configuration refresh complete"
+}
+
 # Function to show or edit configuration
 show_config() {
     local subcommand="${1:-show}"
@@ -260,6 +299,22 @@ show_config() {
     esac
 }
 
+# Function to manage OpenCode config templates on host
+manage_opencode_config() {
+    local subcommand="${1:-update}"
+
+    case "$subcommand" in
+        update)
+            update_opencode_config
+            ;;
+        *)
+            print_error "Unknown config-opencode subcommand: $subcommand"
+            echo "Usage: $0 config-opencode [update]"
+            exit 1
+            ;;
+    esac
+}
+
 # Function to show help
 show_help() {
     cat << EOF
@@ -274,6 +329,7 @@ Commands:
     update              Update OpenCode to the latest version
     version             Show OpenCode version in the container
     config [show|edit|path]  Show, edit, or print config file path
+    config-opencode [update]  Update OpenCode config files from repository templates
     clean               Remove the Docker image
     help                Show this help message
 
@@ -288,6 +344,7 @@ Examples:
     $0 update                       # Update OpenCode to latest version
     $0 config show                  # Show current configuration
     $0 config edit                  # Edit config in \$EDITOR
+    $0 config-opencode update       # Refresh OpenCode config files from repository templates
     $0 clean                        # Remove Docker image
     DRY_RUN=true $0 run             # Show Docker command without running
 
@@ -354,6 +411,9 @@ main() {
             ;;
         config)
             show_config "$@"
+            ;;
+        config-opencode)
+            manage_opencode_config "$@"
             ;;
         clean)
             clean_image

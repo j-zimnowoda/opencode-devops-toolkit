@@ -72,6 +72,8 @@ declare -a VOLUME_ARGS=()        # Array of standard volume mount arguments (pop
 declare -a GIT_WORKTREE_ARGS=()  # Array of docker args for git worktree support (populated by build_git_worktree_args)
 SSH_AGENT_SUPPORT=false          # Boolean flag for SSH agent forwarding support
 OPENSPEC_SUPPORT=false           # Boolean flag for OpenSpec (spec-driven development) support
+AGENTS_SKILLS_SUPPORT=true       # Boolean flag for ~/.agents/skills mount support
+CLAUDE_SKILLS_SUPPORT=true       # Boolean flag for ~/.claude/skills mount support
 
 # ============================================
 # SHARED HELPERS
@@ -277,6 +279,18 @@ build_standard_volume_args() {
         config_info "OpenSpec config directory mounted"
     fi
 
+    # Agent skills directory (optional, configurable)
+    if [ "$AGENTS_SKILLS_SUPPORT" = true ] && [ -d "$HOME/.agents/skills" ]; then
+        VOLUME_ARGS+=(-v "$HOME/.agents/skills:/home/app/.agents/skills:ro")
+        config_info "Mounted ~/.agents/skills to /home/app/.agents/skills"
+    fi
+
+    # Claude skills directory (optional, configurable)
+    if [ "$CLAUDE_SKILLS_SUPPORT" = true ] && [ -d "$HOME/.claude/skills" ]; then
+        VOLUME_ARGS+=(-v "$HOME/.claude/skills:/home/app/.claude/skills:ro")
+        config_info "Mounted ~/.claude/skills to /home/app/.claude/skills"
+    fi
+
     # MCP authentication directory (optional)
     if [ -d "$HOME/.mcp-auth" ]; then
         VOLUME_ARGS+=(-v "$HOME/.mcp-auth:/home/app/.mcp-auth:ro")
@@ -325,6 +339,12 @@ init_config_file() {
 # Then 'openspec update' runs on every launch to keep instruction files in sync
 # See: https://github.com/Fission-AI/OpenSpec/
 # setting.openspec_support=false
+
+# Mount ~/.agents/skills into container (read-only, if host directory exists)
+# setting.agents_skills_support=true
+
+# Mount ~/.claude/skills into container (read-only, if host directory exists)
+# setting.claude_skills_support=true
 
 # Custom volume mounts (read-only by default)
 # Format: mount.<name>=<host_path>:<container_path>[:rw]
@@ -376,6 +396,8 @@ load_config() {
     # Read settings (lines starting with "setting.")
     SSH_AGENT_SUPPORT=false
     OPENSPEC_SUPPORT=false
+    AGENTS_SKILLS_SUPPORT=true
+    CLAUDE_SKILLS_SUPPORT=true
     while IFS='=' read -r key value; do
         [[ "$key" =~ ^[[:space:]]*# ]] && continue
         [[ "$key" =~ ^[[:space:]]*setting\. ]] || continue
@@ -384,6 +406,10 @@ load_config() {
         value="${value%"${value##*[![:space:]]}"}"
         [[ "$key" =~ ssh_agent_support ]] && [[ "$value" == "true" ]] && SSH_AGENT_SUPPORT=true
         [[ "$key" =~ openspec_support ]] && [[ "$value" == "true" ]] && OPENSPEC_SUPPORT=true
+        [[ "$key" =~ agents_skills_support ]] && [[ "$value" == "true" ]] && AGENTS_SKILLS_SUPPORT=true
+        [[ "$key" =~ agents_skills_support ]] && [[ "$value" == "false" ]] && AGENTS_SKILLS_SUPPORT=false
+        [[ "$key" =~ claude_skills_support ]] && [[ "$value" == "true" ]] && CLAUDE_SKILLS_SUPPORT=true
+        [[ "$key" =~ claude_skills_support ]] && [[ "$value" == "false" ]] && CLAUDE_SKILLS_SUPPORT=false
     done < "$CONFIG_FILE"
 
     return 0
@@ -406,6 +432,12 @@ save_config() {
         echo "# When enabled, OpenSpec is available inside the container for spec-driven workflows"
         echo "# See: https://github.com/Fission-AI/OpenSpec/"
         echo "setting.openspec_support=$OPENSPEC_SUPPORT"
+        echo ""
+        echo "# Mount ~/.agents/skills into container (read-only, if host directory exists)"
+        echo "setting.agents_skills_support=$AGENTS_SKILLS_SUPPORT"
+        echo ""
+        echo "# Mount ~/.claude/skills into container (read-only, if host directory exists)"
+        echo "setting.claude_skills_support=$CLAUDE_SKILLS_SUPPORT"
         echo ""
         echo "# Custom volume mounts (read-only by default)"
         echo "# Format: mount.<name>=<host_path>:<container_path>[:rw]"
@@ -810,6 +842,64 @@ prompt_openspec_support() {
     fi
 }
 
+# Interactive ~/.agents/skills mount support prompt
+prompt_agents_skills_support() {
+    echo ""
+    config_info "Mount ~/.agents/skills"
+
+    if [ "$AGENTS_SKILLS_SUPPORT" = true ]; then
+        config_success "Mounting ~/.agents/skills is currently enabled"
+        read -r -p "Keep ~/.agents/skills mount enabled? (Y/n): " agents_skills
+        if [[ "$agents_skills" =~ ^[Nn]$ ]]; then
+            AGENTS_SKILLS_SUPPORT=false
+            config_info "Mounting ~/.agents/skills disabled"
+        else
+            config_success "Mounting ~/.agents/skills remains enabled"
+        fi
+    else
+        echo "When enabled, ~/.agents/skills will be mounted read-only if it exists."
+        echo ""
+
+        read -r -p "Enable ~/.agents/skills mount? (y/N): " agents_skills
+        if [[ "$agents_skills" =~ ^[Yy]$ ]]; then
+            AGENTS_SKILLS_SUPPORT=true
+            config_success "Mounting ~/.agents/skills enabled"
+        else
+            AGENTS_SKILLS_SUPPORT=false
+            config_info "Mounting ~/.agents/skills disabled"
+        fi
+    fi
+}
+
+# Interactive ~/.claude/skills mount support prompt
+prompt_claude_skills_support() {
+    echo ""
+    config_info "Mount ~/.claude/skills"
+
+    if [ "$CLAUDE_SKILLS_SUPPORT" = true ]; then
+        config_success "Mounting ~/.claude/skills is currently enabled"
+        read -r -p "Keep ~/.claude/skills mount enabled? (Y/n): " claude_skills
+        if [[ "$claude_skills" =~ ^[Nn]$ ]]; then
+            CLAUDE_SKILLS_SUPPORT=false
+            config_info "Mounting ~/.claude/skills disabled"
+        else
+            config_success "Mounting ~/.claude/skills remains enabled"
+        fi
+    else
+        echo "When enabled, ~/.claude/skills will be mounted read-only if it exists."
+        echo ""
+
+        read -r -p "Enable ~/.claude/skills mount? (y/N): " claude_skills
+        if [[ "$claude_skills" =~ ^[Yy]$ ]]; then
+            CLAUDE_SKILLS_SUPPORT=true
+            config_success "Mounting ~/.claude/skills enabled"
+        else
+            CLAUDE_SKILLS_SUPPORT=false
+            config_info "Mounting ~/.claude/skills disabled"
+        fi
+    fi
+}
+
 # Print current configuration (for debugging/info)
 print_config() {
     echo ""
@@ -817,6 +907,8 @@ print_config() {
     echo "  Config file: $CONFIG_FILE"
     echo "  SSH agent forwarding: $SSH_AGENT_SUPPORT"
     echo "  OpenSpec support: $OPENSPEC_SUPPORT"
+    echo "  ~/.agents/skills mount: $AGENTS_SKILLS_SUPPORT"
+    echo "  ~/.claude/skills mount: $CLAUDE_SKILLS_SUPPORT"
 
     if [ ${#CUSTOM_MOUNTS[@]} -gt 0 ]; then
         echo ""
@@ -861,6 +953,8 @@ interactive_config_setup() {
             [ "$CONFIG_MODE" = "append" ] && load_config
             prompt_ssh_agent_support
             prompt_openspec_support
+            prompt_agents_skills_support
+            prompt_claude_skills_support
             prompt_custom_mounts
             prompt_env_vars
             save_config
@@ -871,9 +965,11 @@ interactive_config_setup() {
             if [[ "$setup_custom" =~ ^[Yy]$ ]]; then
                 prompt_ssh_agent_support
                 prompt_openspec_support
+                prompt_agents_skills_support
+                prompt_claude_skills_support
                 prompt_custom_mounts
                 prompt_env_vars
-                if [ ${#CUSTOM_MOUNTS[@]} -gt 0 ] || [ ${#CUSTOM_ENV_VARS[@]} -gt 0 ] || [ "$SSH_AGENT_SUPPORT" = true ] || [ "$OPENSPEC_SUPPORT" = true ]; then
+                if [ ${#CUSTOM_MOUNTS[@]} -gt 0 ] || [ ${#CUSTOM_ENV_VARS[@]} -gt 0 ] || [ "$SSH_AGENT_SUPPORT" = true ] || [ "$OPENSPEC_SUPPORT" = true ] || [ "$AGENTS_SKILLS_SUPPORT" = true ] || [ "$CLAUDE_SKILLS_SUPPORT" = true ]; then
                     save_config
                     print_config
                 else
