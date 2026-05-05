@@ -64,7 +64,7 @@ opencode-dockerized version        # Show version
 opencode-dockerized config show    # Show parsed configuration
 opencode-dockerized config edit    # Edit config in $EDITOR
 opencode-dockerized config path    # Print config file path
-opencode-dockerized config-opencode update  # Refresh OpenCode config files from repository templates
+opencode-dockerized config-opencode update  # Refresh OpenCode config files, agents, commands, and plugins from repository templates
 opencode-dockerized help           # Show help
 ```
 

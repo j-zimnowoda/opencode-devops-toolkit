@@ -211,7 +211,13 @@ update_opencode_config() {
         print_success "Updated ~/.config/opencode/oh-my-opencode.json"
     fi
 
-    # Optional command and plugin directories
+    # Optional agent, command, and plugin directories
+    if [ -d "$src_dir/agents" ]; then
+        mkdir -p "$dest_dir/agents"
+        cp -R "$src_dir/agents/." "$dest_dir/agents/"
+        print_success "Updated ~/.config/opencode/agents/"
+    fi
+
     if [ -d "$src_dir/commands" ]; then
         mkdir -p "$dest_dir/commands"
         cp -R "$src_dir/commands/." "$dest_dir/commands/"
