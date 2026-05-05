@@ -59,13 +59,23 @@ Open `config/opencode/opencode.jsonc` file and change versions. Opencode will up
 
 ```bash
 opencode-dockerized auth           # Authenticate with LLM provider
-opencode-dockerized run [DIR]      # Run OpenCode (default: current dir)
+opencode-dockerized run [DIR] [OPENCODE_ARGS...]  # Run OpenCode (default: current dir)
 opencode-dockerized version        # Show version
 opencode-dockerized config show    # Show parsed configuration
 opencode-dockerized config edit    # Edit config in $EDITOR
 opencode-dockerized config path    # Print config file path
 opencode-dockerized config-opencode update  # Refresh OpenCode config files from repository templates
 opencode-dockerized help           # Show help
+```
+
+### Reuse an Existing Session
+
+You can pass OpenCode flags directly through the `run` command.
+To reuse an existing session, pass the session id with `-s`:
+
+```bash
+opencode-dockerized run <DIR> -s <session_id>
+```
 ```
 
 ### Dry Run Mode

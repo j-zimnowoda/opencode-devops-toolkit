@@ -8,7 +8,6 @@ Shell script-based Docker wrapper for running [OpenCode](https://opencode.ai) in
 - `opencode-dockerized.sh` — Main wrapper (build, run, auth, config, clean commands)
 - `config-lib.sh` — Shared library sourced by other scripts (config parsing, mount/env arg building, shared volume logic, interactive prompts). **Not executable directly.**
 - `Dockerfile` — Container image (Debian bookworm-slim + Node.js/NVM + Java 21/SDKMAN + Bun + OpenCode + OpenSpec)
-- `entrypoint.sh` — Container entrypoint (UID/GID mapping, Docker socket permissions)
 - `setup.sh` — First-time config directory initialization
 - `run-simple.sh` — Simplified alternative runner (uses shared logic from config-lib.sh)
 - `config.example` — Example user config (INI-style), in `examples/`
@@ -170,7 +169,6 @@ env.aws_bedrock=AWS_BEARER_TOKEN_BEDROCK
 - Config files mounted read-only (`:ro`); data directories read-write
 - **Never commit:** `.env`, `auth.json`, `*.pem`, `*.key`, credentials
 - Docker socket: mount host socket, no privileged mode, handle GID dynamically in entrypoint
-- Run as non-root `coder` inside container; map UID/GID to match host via `entrypoint.sh`
 - Use `--rm` for automatic container cleanup; `--network host` for simplicity
 - Custom user mounts default to read-only
 - Only pass environment variables explicitly listed in config

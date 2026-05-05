@@ -169,12 +169,3 @@ ENV DISPLAY=:99.0
 ENV XDG_CONFIG_HOME=/home/app/.config
 ENV OPENCODE_CONFIG_DIR=/home/app/.config/opencode
 ENV XDG_DATA_HOME=/home/app/.local/share
-
-
-# RUN opencode mcp list
-
-COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
-
-
-
-ENTRYPOINT ["entrypoint.sh"]

@@ -71,6 +71,7 @@ check_config() {
 }
 
 # Function to run OpenCode authentication
+
 run_auth() {
     check_image "$IMAGE_NAME" || exit 1
 
@@ -111,8 +112,20 @@ run_auth() {
 
 # Function to run OpenCode
 run_opencode() {
-    local project_dir="${1:-$(pwd)}"
+    local project_dir
     local dry_run="${DRY_RUN:-false}"
+    local -a opencode_args=()
+
+    # If first arg is a valid directory, use it as project root and forward the rest.
+    # Otherwise, default to current directory and forward all args to opencode.
+    if [ $# -gt 0 ] && [ -d "$1" ]; then
+        project_dir="$1"
+        shift
+    else
+        project_dir="$(pwd)"
+    fi
+
+    opencode_args=("$@")
 
     # Validate project directory exists
     if [ ! -d "$project_dir" ]; then
@@ -158,6 +171,7 @@ run_opencode() {
         "${DOCKER_ENV_ARGS[@]}"
         "$IMAGE_NAME"
         opencode
+        "${opencode_args[@]}"
     )
 
     if [ "$dry_run" = true ]; then
