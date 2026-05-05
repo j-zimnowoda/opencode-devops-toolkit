@@ -106,7 +106,7 @@ ensure_opencode_dirs() {
 check_image() {
     local image_name="$1"
     if ! docker image inspect "$image_name" >/dev/null 2>&1; then
-        config_error "Docker image '$image_name' not found. Run '$0 build' first."
+        config_error "Docker image '$image_name' not found. Build it first with: docker build -t $image_name ."
         return 1
     fi
 }

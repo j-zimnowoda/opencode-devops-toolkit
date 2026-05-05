@@ -6,8 +6,21 @@ Run OpenCode in a secure, isolated Docker container with controlled access to yo
 
 ## Overview 
 The Dockerfile contains all required tools but it does not contain OpenCode plugins. 
-After running `./setup.sh` the script will bootstrap required configuration files. Once its set plugins and versions in the `$HOME/.config/opencode/opencode.jsonc` on your host. The OpenCode in docker installs plugins with `bun` during the start.
+After running `./setup.sh` the script will bootstrap required configuration files in your filesystem. Those files are going to be mounted with each execution of the opencode-dockeried command. 
 
+
+Volume mounts: 
+
+| Host Path | Container Path | Mode | Purpose |
+|-----------|---------------|------|---------|
+| `$PROJECT_DIR` | `$PROJECT_DIR` (with `$HOME` stripped) | read-write | Your project files |
+| `~/.config/opencode/` | `/home/app/.config/opencode/` | read-only | OpenCode & oh-my-opencode config, skills, commands, agents |
+| `~/.local/share/opencode/` | `/home/app/.local/share/opencode/` | read-write | Auth, logs, sessions, storage |
+| `~/.cache/opencode/` | `/home/app/.cache/opencode/` | read-write | Provider package cache |
+| `~/.cache/oh-my-opencode/` | `/home/app/.cache/oh-my-opencode/` | read-write | Oh My OpenCode cache |
+| `~/.gradle/gradle.properties` | `/home/app/.gradle/gradle.properties` | read-only | Gradle config (optional) |
+| `~/.npmrc` | `/home/app/.npmrc` | read-only | NPM config (optional) |
+| `~/.mcp-auth/` | `/home/app/.mcp-auth/` | read-only | MCP authentication (optional) |
 
 
 ## Prerequisites
@@ -26,22 +39,25 @@ docker build -t opencode-dockerized:latest --build-arg USER_UID=$(id -u) --build
 # 4. Authenticate with your LLM provider (persists in ~/.local/share/opencode)
 opencode-dockerized auth
 ```
+## Opencode Plugin 
+The opencode plugins are not managed in the Dockerfiles and are subject to project or user preferences.
 
-## Version Updates
-### Dockerfile
-Change versions in Dockerfile and run 
+The OpenCode in docker mounts configuration files and installs plugins with `bun` automatically.
+
+## Version Management
+
+Change versions in `Dockerfile` and run build the container image
 ```bash
 # Force rebuild without cache
 docker build --no-cache -t opencode-dockerized:latest .
 ```
 
 ### Opencode plugins
-Open `.config/opencode/opencode.jsonc` file and change versions. Opencode will update them on startup
+Open `config/opencode/opencode.jsonc` file and change versions. Opencode will update them on startup
 
 ## Usage
 
 ```bash
-opencode-dockerized build          # Build Docker image
 opencode-dockerized auth           # Authenticate with LLM provider
 opencode-dockerized run [DIR]      # Run OpenCode (default: current dir)
 opencode-dockerized version        # Show version
@@ -49,7 +65,6 @@ opencode-dockerized config show    # Show parsed configuration
 opencode-dockerized config edit    # Edit config in $EDITOR
 opencode-dockerized config path    # Print config file path
 opencode-dockerized config-opencode update  # Refresh OpenCode config files from repository templates
-opencode-dockerized clean          # Remove the Docker image
 opencode-dockerized help           # Show help
 ```
 
@@ -68,7 +83,7 @@ This version comes with preconfigured Oh-My-Openagent (OMO) plugin, which is set
 
 OMO comes with predefined primary agents. Use `tab` to switch between them.
 
-You can perform build in OpenCode commands by typing `/` in the dialog window.
+You can run OpenCode commands by typing `/` in the dialog window.
 
 ```bash
 /status           # See the enabled MCP servers, formatters and plugins
@@ -100,17 +115,15 @@ If you prefer aliases over the global symlink:
 ```bash
 # For Bash users - add to ~/.bashrc
 echo "alias ocd='/path/to/opencode-dockerized/opencode-dockerized.sh'" >> ~/.bashrc
-echo "alias ocdr='/path/to/opencode-dockerized/opencode-dockerized.sh run'" >> ~/.bashrc
 source ~/.bashrc
 
 # For Zsh users - add to ~/.zshrc
 echo "alias ocd='/path/to/opencode-dockerized/opencode-dockerized.sh'" >> ~/.zshrc
-echo "alias ocdr='/path/to/opencode-dockerized/opencode-dockerized.sh run'" >> ~/.zshrc
 source ~/.zshrc
 
 # Then use it anywhere
 cd ~/my-project
-ocd run
+ocd
 ```
 
 ### Shell Completion (Optional)
@@ -138,15 +151,7 @@ echo "source /path/to/opencode-dockerized/completions/zsh.sh" >> ~/.zshrc
 sudo cp /path/to/opencode-dockerized/completions/zsh.sh /usr/local/share/zsh/site-functions/_opencode-dockerized
 ```
 
-After installation, you'll get:
-- Command completion (`run`, `build`, `update`, `version`, `auth`, `config`, `clean`, `help`)
-- Subcommand completion for `config` (`show`, `edit`, `path`)
-- Directory completion for the `run` command
-- Helpful descriptions for each command
-- Works with `opencode-dockerized.sh`, the global `opencode-dockerized` command, and the `ocd` alias
-
-
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -161,16 +166,6 @@ TERM=xterm-256color
 
 ### Volume Mounts
 
-| Host Path | Container Path | Mode | Purpose |
-|-----------|---------------|------|---------|
-| `$PROJECT_DIR` | `$PROJECT_DIR` (with `$HOME` stripped) | read-write | Your project files |
-| `~/.config/opencode/` | `/home/app/.config/opencode/` | read-only | OpenCode & oh-my-opencode config, skills, commands, agents |
-| `~/.local/share/opencode/` | `/home/app/.local/share/opencode/` | read-write | Auth, logs, sessions, storage |
-| `~/.cache/opencode/` | `/home/app/.cache/opencode/` | read-write | Provider package cache |
-| `~/.cache/oh-my-opencode/` | `/home/app/.cache/oh-my-opencode/` | read-write | Oh My OpenCode cache |
-| `~/.gradle/gradle.properties` | `/home/app/.gradle/gradle.properties` | read-only | Gradle config (optional) |
-| `~/.npmrc` | `/home/app/.npmrc` | read-only | NPM config (optional) |
-| `~/.mcp-auth/` | `/home/app/.mcp-auth/` | read-only | MCP authentication (optional) |
 
 
 ### Custom Global Configuration (Optional)

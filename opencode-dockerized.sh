@@ -174,43 +174,6 @@ run_opencode() {
     fi
 }
 
-# Function to update OpenCode
-update_opencode() {
-    check_image "$IMAGE_NAME" || {
-        print_info "Image not found, building fresh..."
-        docker build --build-arg "OPENCODE_BUILD_TIME=$(date +%s)" -t "$IMAGE_NAME" "$SCRIPT_DIR"
-        print_success "OpenCode image built successfully"
-        return 0
-    }
-
-    # Show current version before update
-    print_info "Current OpenCode version:"
-    docker run --rm --entrypoint bash "$IMAGE_NAME" -c "source \$NVM_DIR/nvm.sh && npm list -g opencode-ai --depth=0" 2>/dev/null || true
-    docker run --rm --entrypoint bash "$IMAGE_NAME" -c "source \$NVM_DIR/nvm.sh && npm list -g @fission-ai/openspec --depth=0" 2>/dev/null || true
-
-    # Rebuild with cache-busting to force fresh npm install
-    print_info "Rebuilding image with latest OpenCode and OpenSpec..."
-    docker build --build-arg "OPENCODE_BUILD_TIME=$(date +%s)" -t "$IMAGE_NAME" "$SCRIPT_DIR"
-
-    # Show new version after update
-    print_info "Updated OpenCode version:"
-    docker run --rm --entrypoint bash "$IMAGE_NAME" -c "source \$NVM_DIR/nvm.sh && npm list -g opencode-ai --depth=0" 2>/dev/null || true
-    docker run --rm --entrypoint bash "$IMAGE_NAME" -c "source \$NVM_DIR/nvm.sh && npm list -g @fission-ai/openspec --depth=0" 2>/dev/null || true
-
-    print_success "OpenCode updated successfully"
-}
-
-# Function to clean up Docker image
-clean_image() {
-    if docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
-        print_info "Removing Docker image '$IMAGE_NAME'..."
-        docker rmi "$IMAGE_NAME"
-        print_success "Docker image removed"
-    else
-        print_info "Docker image '$IMAGE_NAME' does not exist"
-    fi
-}
-
 # Function to update OpenCode configuration files on the host
 update_opencode_config() {
     local src_dir="$SCRIPT_DIR/config/opencode"
@@ -308,44 +271,13 @@ Usage: $0 [COMMAND] [OPTIONS]
 Commands:
     run [DIR]           Run OpenCode in Docker (default: current directory)
     auth                Run OpenCode authentication (opencode auth login)
-    build               Build the Docker image
-    update              Update OpenCode to the latest version
     version             Show OpenCode version in the container
     config [show|edit|path]  Show, edit, or print config file path
     config-opencode [update]  Update OpenCode config files from repository templates
-    clean               Remove the Docker image
     help                Show this help message
 
 Environment Variables:
     DRY_RUN=true        Print the Docker command without executing it
-
-Examples:
-    $0 run                          # Run in current directory
-    $0 run /path/to/project         # Run in specific directory
-    $0 auth                         # Authenticate with your LLM provider
-    $0 build                        # Build the Docker image
-    $0 update                       # Update OpenCode to latest version
-    $0 config show                  # Show current configuration
-    $0 config edit                  # Edit config in \$EDITOR
-    $0 config-opencode update       # Refresh OpenCode config files from repository templates
-    $0 clean                        # Remove Docker image
-    DRY_RUN=true $0 run             # Show Docker command without running
-
-Getting Started:
-    1. ./setup.sh                   # First-time setup (creates config directories)
-    2. $0 build                     # Build the Docker image
-    3. $0 auth                      # Authenticate with your LLM provider
-    4. $0 run /path/to/project      # Run OpenCode
-
-Security Features:
-    - Isolated environment: only access to mounted project directory
-    - Read-only config mounts: configuration files are mounted read-only
-    - Non-root user: runs as non-root user inside container
-    - Automatic cleanup: containers are removed on exit (--rm)
-
-Note: Docker socket is mounted for Docker-in-Docker support. This grants the
-container full access to the host Docker daemon. Disable by removing the socket
-mount in the config if not needed.
 
 For more information, see README.md
 EOF
@@ -372,9 +304,6 @@ main() {
         auth)
             run_auth
             ;;
-        update)
-            update_opencode
-            ;;
         version)
             show_version
             ;;
@@ -383,9 +312,6 @@ main() {
             ;;
         config-opencode)
             manage_opencode_config "$@"
-            ;;
-        clean)
-            clean_image
             ;;
         help|--help|-h)
             show_help
