@@ -424,14 +424,6 @@ echo "  3. Run OpenCode in your project:"
 echo "     opencode-dockerized run /path/to/your/project"
 echo ""
 
-# Show OpenSpec instructions only if it was enabled
-if [ "$OPENSPEC_SUPPORT" = true ]; then
-    echo "  4. OpenSpec will automatically initialize when you first run OpenCode"
-    echo "     in a project that doesn't have an openspec/ directory yet."
-    echo "     It runs: openspec init --tools opencode && openspec update"
-    echo ""
-fi
-
 echo "Note: If you already have OpenCode configured locally, your"
 echo "      existing authentication will be automatically available."
 echo ""
